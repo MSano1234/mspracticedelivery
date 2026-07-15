@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SwiftDrop delivery tracking API
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DeliveriesTable
+
+Resources:
+  DeliveriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: swiftdrop-deliveries
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  DeliveryApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  DeliveryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DeliveriesTable
+      Events:
+        GetDeliveries:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DeliveryApi
+            Path: /deliveries
+            Method: GET
+        CreateDelivery:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DeliveryApi
+            Path: /deliveries
+            Method: POST
+        UpdateDelivery:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DeliveryApi
+            Path: /deliveries/{id}
+            Method: PATCH
+        DeleteDelivery:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DeliveryApi
+            Path: /deliveries/{id}
+            Method: DELETE
+
+Outputs:
+  ApiUrl:
+    Description: SwiftDrop HTTP API URL
+    Value: !Sub "https://${DeliveryApi}.execute-api.${AWS::Region}.amazonaws.com"
