@@ -116,9 +116,9 @@ function App() {
     <div className="app-shell">
       <header>
         <div className="brand">
-          <div className="logo">S</div>
+          <div className="logo">MS</div>
           <div>
-            <h1>SwiftDrop</h1>
+            <h1>MS Practice Delivery</h1>
             <p>Serverless delivery operations</p>
           </div>
         </div>
@@ -129,10 +129,9 @@ function App() {
         <section className="hero">
           <div>
             <p className="eyebrow">DELIVERY MANAGEMENT</p>
-            <h2>Track every delivery from request to doorstep.</h2>
+            Modern Serverless Delivery Management
             <p className="hero-copy">
-              Create orders, assign drivers, and update delivery progress through
-              a serverless AWS application.
+              Built with AWS Lambda, API Gateway, DynamoDB, React, AWS SAM, and AWS Amplify.
             </p>
           </div>
         </section>
@@ -220,7 +219,7 @@ function App() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">LIVE OPERATIONS</p>
-                <h3>Delivery orders</h3>
+                <h3>Recent Deliveries</h3>
               </div>
               <button className="secondary" onClick={loadDeliveries}>
                 Refresh
@@ -284,8 +283,8 @@ function App() {
       </main>
 
       <footer>
-        SwiftDrop portfolio project · React · API Gateway · Lambda · DynamoDB
-      </footer>
+         · React · API Gateway · Lambda · DynamoDB
+      </footer>MS Practice Delivery · AWS Serverless Portfolio Project · React · API Gateway · Lambda · DynamoDB
     </div>
   );
 }
