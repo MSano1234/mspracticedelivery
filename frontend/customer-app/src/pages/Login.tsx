@@ -2,8 +2,8 @@ import { useState } from "react";
 
 import {
   fetchUserAttributes,
-  getCurrentUser,
   signIn,
+  signOut,
   updateUserAttributes,
 } from "aws-amplify/auth";
 
@@ -20,8 +20,7 @@ function Login() {
     useSearchParams();
 
   /*
-   * Read the role selected on the
-   * Welcome page.
+   * Selected account type from the URL.
    *
    * /login?role=orderer
    * /login?role=driver
@@ -50,21 +49,35 @@ function Login() {
     useState(false);
 
   /*
-   * Convert the roles stored in Cognito
-   * into a clean array.
+   * Get the user's existing roles.
+   *
+   * New system:
+   *
+   * custom:roles
    *
    * Example:
    *
-   * "orderer,driver"
+   * orderer
    *
-   * becomes:
+   * or:
    *
-   * ["orderer", "driver"]
+   * orderer,driver
+   *
+   * We also support the old:
+   *
+   * custom:role
+   *
+   * so existing accounts are not broken.
    */
-  const parseRoles = (
-    rolesValue: string | undefined,
-    oldRole?: string
+  const getExistingRoles = (
+    attributes: Record<
+      string,
+      string | undefined
+    >
   ): string[] => {
+    const rolesValue =
+      attributes["custom:roles"];
+
     if (rolesValue) {
       return rolesValue
         .split(",")
@@ -75,12 +88,11 @@ function Login() {
     }
 
     /*
-     * Backward compatibility for accounts
-     * created before the new roles system.
-     *
-     * If the old custom:role exists,
-     * migrate that role into the new system.
+     * Migrate old single-role accounts.
      */
+    const oldRole =
+      attributes["custom:role"];
+
     if (oldRole) {
       return [
         oldRole
@@ -93,68 +105,97 @@ function Login() {
   };
 
   /*
-   * Add the selected role to the user's
-   * existing roles.
+   * Add the selected role without
+   * removing any existing role.
    *
-   * This does NOT remove the existing role.
+   * Example:
+   *
+   * orderer
+   *
+   * becomes:
+   *
+   * orderer,driver
    */
-  const ensureSelectedRole =
-    async (
-      attributes: Record<
-        string,
-        string | undefined
-      >
-    ): Promise<string[]> => {
+  const addSelectedRole =
+    async () => {
+      const attributes =
+        await fetchUserAttributes();
+
+      console.log(
+        "Current Cognito attributes:",
+        attributes
+      );
+
       const existingRoles =
-        parseRoles(
-          attributes["custom:roles"],
-          attributes["custom:role"]
+        getExistingRoles(
+          attributes
         );
 
+      console.log(
+        "Existing roles:",
+        existingRoles
+      );
+
+      /*
+       * Add the selected role if it
+       * doesn't already exist.
+       */
       if (
-        existingRoles.includes(
+        !existingRoles.includes(
           selectedRole
         )
       ) {
-        return existingRoles;
+        existingRoles.push(
+          selectedRole
+        );
       }
 
-      const updatedRoles = [
-        ...existingRoles,
-        selectedRole,
-      ];
+      const updatedRoles =
+        existingRoles.join(",");
 
       console.log(
-        "Adding role to account:",
-        selectedRole
-      );
-
-      console.log(
-        "Updated roles:",
+        "SwiftDrop roles:",
         updatedRoles
       );
 
-      await updateUserAttributes({
-        userAttributes: {
-          "custom:roles":
-            updatedRoles.join(","),
-        },
-      });
+      /*
+       * Save the multi-role attribute.
+       */
+      if (
+        attributes["custom:roles"] !==
+        updatedRoles
+      ) {
+        await updateUserAttributes({
+          userAttributes: {
+            "custom:roles":
+              updatedRoles,
+          },
+        });
+
+        console.log(
+          "Updated custom:roles:",
+          updatedRoles
+        );
+      }
 
       return updatedRoles;
     };
 
   /*
-   * Navigate based on the role
-   * the user selected.
+   * Navigate according to the role
+   * selected on the login page.
    *
-   * We no longer navigate based on
-   * one permanent Cognito role.
+   * IMPORTANT:
+   *
+   * We do NOT use custom:role here.
+   *
+   * The user intentionally selected
+   * Orderer or Driver.
    */
   const navigateBySelectedRole =
     () => {
       console.log(
-        "Navigating using selected role:",
+        "Selected SwiftDrop role:",
         selectedRole
       );
 
@@ -180,53 +221,6 @@ function Login() {
     };
 
   /*
-   * Verify an already authenticated
-   * session.
-   */
-  const verifyExistingSession =
-    async () => {
-      try {
-        const currentUser =
-          await getCurrentUser();
-
-        console.log(
-          "Existing authenticated user:",
-          currentUser
-        );
-
-        const attributes =
-          await fetchUserAttributes();
-
-        console.log(
-          "Existing user attributes:",
-          attributes
-        );
-
-        /*
-         * Automatically add the selected
-         * role if necessary.
-         */
-        await ensureSelectedRole(
-          attributes
-        );
-
-        /*
-         * The user is authorized for
-         * the selected mode.
-         */
-        navigateBySelectedRole();
-
-        return true;
-      } catch (error) {
-        console.log(
-          "No existing authenticated session."
-        );
-
-        return false;
-      }
-    };
-
-  /*
    * Login.
    */
   const handleSubmit = async (
@@ -247,26 +241,19 @@ function Login() {
     try {
       setLoading(true);
 
-      /*
-       * First check whether the browser
-       * already has an authenticated
-       * Cognito session.
-       */
-      const alreadyAuthenticated =
-        await verifyExistingSession();
-
-      if (alreadyAuthenticated) {
-        return;
-      }
-
-      /*
-       * Authenticate with Cognito.
-       */
       console.log(
-        "Signing in:",
+        "Selected login role:",
+        selectedRole
+      );
+
+      console.log(
+        "Attempting login:",
         email
       );
 
+      /*
+       * Try to sign in normally.
+       */
       const result =
         await signIn({
           username: email,
@@ -283,27 +270,16 @@ function Login() {
        */
       if (result.isSignedIn) {
         /*
-         * Get the user's current attributes.
+         * Add the selected role to the
+         * existing account.
          */
-        const attributes =
-          await fetchUserAttributes();
-
-        console.log(
-          "Authenticated user attributes:",
-          attributes
-        );
+        await addSelectedRole();
 
         /*
-         * Add the selected role if the
-         * user doesn't already have it.
-         */
-        await ensureSelectedRole(
-          attributes
-        );
-
-        /*
-         * Go to the dashboard for the
-         * mode the user selected.
+         * IMPORTANT:
+         *
+         * Navigation is based on what the
+         * user selected on the login page.
          */
         navigateBySelectedRole();
 
@@ -311,53 +287,84 @@ function Login() {
       }
 
       /*
-       * Additional Cognito steps.
+       * Additional Cognito verification.
        */
       if (
         result.nextStep?.signInStep
       ) {
         console.log(
-          "Additional sign-in step required:",
-          result.nextStep
-            .signInStep
+          "Additional sign-in step:",
+          result.nextStep.signInStep
         );
 
         setError(
           `Additional verification is required: ${result.nextStep.signInStep}`
         );
       }
+
     } catch (error: any) {
+
       console.error(
         "Sign-in error:",
         error
       );
 
       /*
-       * Already authenticated.
+       * If a Cognito session is already
+       * active, sign it out and retry
+       * using the credentials entered
+       * on this page.
        */
       if (
         error?.name ===
         "UserAlreadyAuthenticatedException"
       ) {
         try {
-          const attributes =
-            await fetchUserAttributes();
-
-          await ensureSelectedRole(
-            attributes
+          console.log(
+            "Existing session detected. Signing out before retrying."
           );
 
-          navigateBySelectedRole();
+          await signOut();
+
+          /*
+           * Now authenticate with the
+           * email/password entered here.
+           */
+          const retryResult =
+            await signIn({
+              username: email,
+              password,
+            });
+
+          console.log(
+            "Retry sign-in result:",
+            retryResult
+          );
+
+          if (
+            retryResult.isSignedIn
+          ) {
+            await addSelectedRole();
+
+            navigateBySelectedRole();
+
+            return;
+          }
+
+          setError(
+            "Additional verification is required before you can continue."
+          );
+
         } catch (
-          roleError
+          retryError: any
         ) {
           console.error(
-            "Unable to update account roles:",
-            roleError
+            "Retry sign-in error:",
+            retryError
           );
 
           setError(
-            "Unable to update your SwiftDrop account."
+            "Unable to sign in. Please check your email and password."
           );
         }
 
@@ -365,7 +372,7 @@ function Login() {
       }
 
       /*
-       * Incorrect credentials.
+       * Incorrect password/email.
        */
       if (
         error?.name ===
@@ -379,7 +386,7 @@ function Login() {
       }
 
       /*
-       * User doesn't exist.
+       * Account doesn't exist.
        */
       if (
         error?.name ===
@@ -407,8 +414,7 @@ function Login() {
       }
 
       /*
-       * Cognito custom attribute
-       * doesn't exist yet.
+       * Custom attribute problem.
        */
       if (
         error?.name ===
@@ -420,15 +426,19 @@ function Login() {
           .includes("roles")
       ) {
         setError(
-          "Your SwiftDrop account configuration needs to be updated. Please try again after the account roles attribute is enabled."
+          "SwiftDrop could not update your account roles. Please verify the custom:roles attribute in Cognito."
         );
 
         return;
       }
 
+      /*
+       * Generic error.
+       */
       setError(
         "Unable to sign in. Please try again."
       );
+
     } finally {
       setLoading(false);
     }
@@ -521,13 +531,13 @@ function Login() {
               <strong>
                 {isDriver
                   ? "Manage Deliveries"
-                  : "Fast Delivery"}
+                  : "Easy Delivery"}
               </strong>
 
               <span>
                 {isDriver
                   ? "Update delivery status as you go."
-                  : "Simple delivery management."}
+                  : "Request deliveries in seconds."}
               </span>
             </div>
 
@@ -538,7 +548,7 @@ function Login() {
       </section>
 
       {/* =========================
-          LOGIN SECTION
+          LOGIN FORM
       ========================== */}
 
       <section className="login-form-section">
@@ -555,28 +565,40 @@ function Login() {
             style={{
               display:
                 "inline-flex",
+
               alignItems:
                 "center",
-              gap: "7px",
+
+              gap:
+                "7px",
+
               background:
                 isDriver
                   ? "#f0fdf4"
                   : "#eff6ff",
+
               color:
                 isDriver
                   ? "#166534"
                   : "#1d4ed8",
+
               padding:
                 "6px 11px",
+
               borderRadius:
                 "20px",
+
               fontSize:
                 "12px",
-              fontWeight: 700,
+
+              fontWeight:
+                700,
+
               marginBottom:
                 "16px",
             }}
           >
+
             <span>
               {isDriver
                 ? "🚗"
@@ -584,8 +606,9 @@ function Login() {
             </span>
 
             {isDriver
-              ? "Driver"
-              : "Orderer"}
+              ? "Driver Account"
+              : "Orderer Account"}
+
           </div>
 
           <h1>
@@ -593,9 +616,11 @@ function Login() {
           </h1>
 
           <p className="subtitle">
+
             {isDriver
               ? "Sign in to manage your deliveries"
               : "Sign in to manage and track your deliveries"}
+
           </p>
 
           {error && (
@@ -603,17 +628,24 @@ function Login() {
               style={{
                 background:
                   "#fee2e2",
+
                 color:
                   "#b91c1c",
+
                 padding:
                   "12px 15px",
+
                 borderRadius:
                   "8px",
+
                 marginBottom:
                   "20px",
+
                 fontSize:
                   "14px",
-                lineHeight: 1.5,
+
+                lineHeight:
+                  1.5,
               }}
             >
               {error}
@@ -625,8 +657,6 @@ function Login() {
               handleSubmit
             }
           >
-
-            {/* Email */}
 
             <div className="form-group">
 
@@ -653,8 +683,6 @@ function Login() {
 
             </div>
 
-            {/* Password */}
-
             <div className="form-group">
 
               <label
@@ -680,23 +708,21 @@ function Login() {
 
             </div>
 
-            {/* Submit */}
-
             <button
               type="submit"
               className="login-button"
               disabled={loading}
             >
+
               {loading
                 ? "Signing in..."
                 : isDriver
                 ? "Sign In as Driver"
                 : "Sign In as Orderer"}
+
             </button>
 
           </form>
-
-          {/* Signup */}
 
           <p className="signup-text">
 
@@ -710,29 +736,32 @@ function Login() {
 
           </p>
 
-          {/* Change role */}
-
           <div
             style={{
               marginTop:
                 "20px",
+
               textAlign:
                 "center",
             }}
           >
+
             <Link
               to="/"
               style={{
                 color:
                   "#64748b",
+
                 fontSize:
                   "13px",
+
                 textDecoration:
                   "none",
               }}
             >
               ← Choose a different account type
             </Link>
+
           </div>
 
         </div>
