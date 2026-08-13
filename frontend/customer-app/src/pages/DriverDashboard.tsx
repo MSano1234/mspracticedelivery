@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { generateClient } from "aws-amplify/api";
 
 import {
   fetchUserAttributes,
@@ -6,6 +7,20 @@ import {
 } from "aws-amplify/auth";
 
 import { useNavigate } from "react-router-dom";
+
+const LIST_DELIVERIES = `
+  query ListDeliveries {
+    listDeliveries {
+      id
+      pickupAddress
+      destinationAddress
+      status
+      createdAt
+      driverId
+      customerId
+    }
+  }
+`;
 
 type DeliveryStatus =
   | "PENDING"
@@ -195,25 +210,80 @@ function DriverDashboard() {
    */
 
   useEffect(() => {
-    if (
-      !authorized ||
-      !driverId
-    ) {
+    if (!authorized || !driverId) {
       return;
     }
 
-    /*
-     * Temporary delivery loading.
-     *
-     * Replace this section with your existing GraphQL/API
-     * delivery query if your current dashboard already has one.
-     */
-    setDeliveries([]);
+    let mounted = true;
+    const client = generateClient();
 
-  }, [
-    authorized,
-    driverId,
-  ]);
+    const loadDeliveries = async () => {
+      try {
+        const response: any = await client.graphql({
+          query: LIST_DELIVERIES,
+          authMode: "userPool",
+        });
+
+        if (!mounted) {
+          return;
+        }
+
+        const allDeliveries: Delivery[] =
+          response.data?.listDeliveries ?? [];
+
+        /*
+         * Only unassigned REQUESTED deliveries are shown
+         * as available jobs for this driver.
+         */
+        const requestedDeliveries = allDeliveries.filter(
+          (delivery) =>
+            delivery.status === "REQUESTED" &&
+            !delivery.driverId
+        );
+
+        setDeliveries(requestedDeliveries);
+        setError("");
+      } catch (loadError: any) {
+        console.error(
+          "Failed to load driver deliveries:",
+          loadError
+        );
+
+        if (mounted) {
+          setError(
+            loadError?.errors?.[0]?.message ||
+              loadError?.message ||
+              "Unable to load deliveries."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    /*
+     * Load immediately when the driver dashboard opens.
+     */
+    loadDeliveries();
+
+    /*
+     * Keep the dashboard synchronized while it remains open.
+     *
+     * New delivery requests appear automatically without
+     * refreshing or leaving the Driver Dashboard.
+     */
+    const intervalId = window.setInterval(
+      loadDeliveries,
+      5000
+    );
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [authorized, driverId]);
 
   /*
    * ============================================================
