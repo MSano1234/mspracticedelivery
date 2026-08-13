@@ -1,9 +1,12 @@
 import { useState } from "react";
+
 import {
   fetchUserAttributes,
   getCurrentUser,
   signIn,
+  updateUserAttributes,
 } from "aws-amplify/auth";
+
 import {
   Link,
   useNavigate,
@@ -17,8 +20,8 @@ function Login() {
     useSearchParams();
 
   /*
-   * Read the account type selected
-   * on the Welcome page.
+   * Read the role selected on the
+   * Welcome page.
    *
    * /login?role=orderer
    * /login?role=driver
@@ -26,10 +29,6 @@ function Login() {
   const urlRole =
     searchParams.get("role");
 
-  /*
-   * Default to orderer if no role
-   * was provided.
-   */
   const selectedRole =
     urlRole === "driver"
       ? "driver"
@@ -51,51 +50,138 @@ function Login() {
     useState(false);
 
   /*
-   * Navigate based on the ACTUAL
-   * Cognito role.
+   * Convert the roles stored in Cognito
+   * into a clean array.
+   *
+   * Example:
+   *
+   * "orderer,driver"
+   *
+   * becomes:
+   *
+   * ["orderer", "driver"]
    */
-  const navigateByRole = (
-    actualRole: string | undefined
-  ) => {
-    console.log(
-      "Navigating based on Cognito role:",
-      actualRole
-    );
-
-    if (actualRole === "driver") {
-      navigate(
-        "/driver-dashboard",
-        {
-          replace: true,
-        }
-      );
-
-      return;
+  const parseRoles = (
+    rolesValue: string | undefined,
+    oldRole?: string
+  ): string[] => {
+    if (rolesValue) {
+      return rolesValue
+        .split(",")
+        .map((role) =>
+          role.trim().toLowerCase()
+        )
+        .filter(Boolean);
     }
 
-    if (actualRole === "orderer") {
+    /*
+     * Backward compatibility for accounts
+     * created before the new roles system.
+     *
+     * If the old custom:role exists,
+     * migrate that role into the new system.
+     */
+    if (oldRole) {
+      return [
+        oldRole
+          .trim()
+          .toLowerCase(),
+      ];
+    }
+
+    return [];
+  };
+
+  /*
+   * Add the selected role to the user's
+   * existing roles.
+   *
+   * This does NOT remove the existing role.
+   */
+  const ensureSelectedRole =
+    async (
+      attributes: Record<
+        string,
+        string | undefined
+      >
+    ): Promise<string[]> => {
+      const existingRoles =
+        parseRoles(
+          attributes["custom:roles"],
+          attributes["custom:role"]
+        );
+
+      if (
+        existingRoles.includes(
+          selectedRole
+        )
+      ) {
+        return existingRoles;
+      }
+
+      const updatedRoles = [
+        ...existingRoles,
+        selectedRole,
+      ];
+
+      console.log(
+        "Adding role to account:",
+        selectedRole
+      );
+
+      console.log(
+        "Updated roles:",
+        updatedRoles
+      );
+
+      await updateUserAttributes({
+        userAttributes: {
+          "custom:roles":
+            updatedRoles.join(","),
+        },
+      });
+
+      return updatedRoles;
+    };
+
+  /*
+   * Navigate based on the role
+   * the user selected.
+   *
+   * We no longer navigate based on
+   * one permanent Cognito role.
+   */
+  const navigateBySelectedRole =
+    () => {
+      console.log(
+        "Navigating using selected role:",
+        selectedRole
+      );
+
+      if (
+        selectedRole === "driver"
+      ) {
+        navigate(
+          "/driver-dashboard",
+          {
+            replace: true,
+          }
+        );
+
+        return;
+      }
+
       navigate(
         "/home",
         {
           replace: true,
         }
       );
-
-      return;
-    }
-
-    /*
-     * If the account doesn't have
-     * a valid role, don't guess.
-     */
-    setError(
-      "Your SwiftDrop account does not have a valid account type. Please contact support."
-    );
-  };
+    };
 
   /*
-   * Verify the currently authenticated
-   * user's Cognito role.
+   * Verify an already authenticated
+   * session.
    */
   const verifyExistingSession =
     async () => {
@@ -116,43 +202,26 @@ function Login() {
           attributes
         );
 
-        const actualRole =
-          attributes["custom:role"];
-
-        console.log(
-          "Existing Cognito role:",
-          actualRole
+        /*
+         * Automatically add the selected
+         * role if necessary.
+         */
+        await ensureSelectedRole(
+          attributes
         );
 
         /*
-         * Make sure the selected role
-         * matches the actual account.
+         * The user is authorized for
+         * the selected mode.
          */
-        if (
-          actualRole !==
-          selectedRole
-        ) {
-          setError(
-            `This email is registered as a ${
-              actualRole === "driver"
-                ? "Driver"
-                : "Orderer"
-            } account. Please choose the correct account type.`
-          );
-
-          return true;
-        }
-
-        navigateByRole(
-          actualRole
-        );
+        navigateBySelectedRole();
 
         return true;
+      } catch (error) {
+        console.log(
+          "No existing authenticated session."
+        );
 
-      } catch {
-        /*
-         * No existing session.
-         */
         return false;
       }
     };
@@ -191,7 +260,7 @@ function Login() {
       }
 
       /*
-       * Sign in with Cognito.
+       * Authenticate with Cognito.
        */
       console.log(
         "Signing in:",
@@ -210,12 +279,11 @@ function Login() {
       );
 
       /*
-       * Successful sign-in.
+       * Successful authentication.
        */
       if (result.isSignedIn) {
         /*
-         * Get the actual Cognito
-         * attributes after authentication.
+         * Get the user's current attributes.
          */
         const attributes =
           await fetchUserAttributes();
@@ -225,47 +293,19 @@ function Login() {
           attributes
         );
 
-        const actualRole =
-          attributes["custom:role"];
-
-        console.log(
-          "ACTUAL COGNITO ROLE:",
-          actualRole
+        /*
+         * Add the selected role if the
+         * user doesn't already have it.
+         */
+        await ensureSelectedRole(
+          attributes
         );
 
         /*
-         * Make sure the account type
-         * selected on the login page
-         * matches the user's actual role.
+         * Go to the dashboard for the
+         * mode the user selected.
          */
-        if (
-          actualRole !==
-          selectedRole
-        ) {
-          /*
-           * Do not allow the user to
-           * enter the wrong dashboard.
-           */
-          setError(
-            `This account is registered as a ${
-              actualRole === "driver"
-                ? "Driver"
-                : actualRole === "orderer"
-                ? "Orderer"
-                : "different"
-            } account. Please choose the correct account type.`
-          );
-
-          return;
-        }
-
-        /*
-         * Navigate according to the
-         * actual Cognito role.
-         */
-        navigateByRole(
-          actualRole
-        );
+        navigateBySelectedRole();
 
         return;
       }
@@ -278,14 +318,14 @@ function Login() {
       ) {
         console.log(
           "Additional sign-in step required:",
-          result.nextStep.signInStep
+          result.nextStep
+            .signInStep
         );
 
         setError(
           `Additional verification is required: ${result.nextStep.signInStep}`
         );
       }
-
     } catch (error: any) {
       console.error(
         "Sign-in error:",
@@ -303,43 +343,21 @@ function Login() {
           const attributes =
             await fetchUserAttributes();
 
-          const actualRole =
-            attributes["custom:role"];
-
-          console.log(
-            "Already authenticated role:",
-            actualRole
+          await ensureSelectedRole(
+            attributes
           );
 
-          if (
-            actualRole !==
-            selectedRole
-          ) {
-            setError(
-              `This account is registered as a ${
-                actualRole === "driver"
-                  ? "Driver"
-                  : "Orderer"
-              } account. Please choose the correct account type.`
-            );
-
-            return;
-          }
-
-          navigateByRole(
-            actualRole
-          );
-
+          navigateBySelectedRole();
         } catch (
           roleError
         ) {
           console.error(
-            "Unable to verify existing account role:",
+            "Unable to update account roles:",
             roleError
           );
 
           setError(
-            "Unable to verify your SwiftDrop account."
+            "Unable to update your SwiftDrop account."
           );
         }
 
@@ -361,26 +379,21 @@ function Login() {
       }
 
       /*
-       * User does not exist.
+       * User doesn't exist.
        */
       if (
         error?.name ===
         "UserNotFoundException"
       ) {
         setError(
-          `No SwiftDrop ${
-            isDriver
-              ? "driver"
-              : "orderer"
-          } account was found with this email.`
+          "No SwiftDrop account was found with this email."
         );
 
         return;
       }
 
       /*
-       * User has not confirmed
-       * their email.
+       * Email hasn't been confirmed.
        */
       if (
         error?.name ===
@@ -394,12 +407,28 @@ function Login() {
       }
 
       /*
-       * Generic error.
+       * Cognito custom attribute
+       * doesn't exist yet.
        */
+      if (
+        error?.name ===
+          "InvalidParameterException" &&
+        String(
+          error?.message
+        )
+          .toLowerCase()
+          .includes("roles")
+      ) {
+        setError(
+          "Your SwiftDrop account configuration needs to be updated. Please try again after the account roles attribute is enabled."
+        );
+
+        return;
+      }
+
       setError(
         "Unable to sign in. Please try again."
       );
-
     } finally {
       setLoading(false);
     }
@@ -541,7 +570,8 @@ function Login() {
                 "6px 11px",
               borderRadius:
                 "20px",
-              fontSize: "12px",
+              fontSize:
+                "12px",
               fontWeight: 700,
               marginBottom:
                 "16px",
@@ -554,8 +584,8 @@ function Login() {
             </span>
 
             {isDriver
-              ? "Driver Account"
-              : "Orderer Account"}
+              ? "Driver"
+              : "Orderer"}
           </div>
 
           <h1>
@@ -615,8 +645,7 @@ function Login() {
                   event
                 ) =>
                   setEmail(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 autoComplete="email"
@@ -643,8 +672,7 @@ function Login() {
                   event
                 ) =>
                   setPassword(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 autoComplete="current-password"
@@ -670,20 +698,16 @@ function Login() {
 
           {/* Signup */}
 
-          <p
-            className="signup-text"
-          >
-            Don't have a{" "}
-            {isDriver
-              ? "driver"
-              : "orderer"}{" "}
-            account?{" "}
+          <p className="signup-text">
+
+            Don't have an account?{" "}
 
             <Link
               to={`/signup?role=${selectedRole}`}
             >
               Create one
             </Link>
+
           </p>
 
           {/* Change role */}

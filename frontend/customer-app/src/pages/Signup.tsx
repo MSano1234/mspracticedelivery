@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { signUp } from "aws-amplify/auth";
+
+import {
+  signUp,
+} from "aws-amplify/auth";
+
 import {
   Link,
   useNavigate,
@@ -57,6 +61,9 @@ function Signup() {
     setError("");
     setMessage("");
 
+    /*
+     * Validate fields.
+     */
     if (
       !email ||
       !password ||
@@ -69,6 +76,9 @@ function Signup() {
       return;
     }
 
+    /*
+     * Validate password confirmation.
+     */
     if (
       password !==
       confirmPassword
@@ -80,6 +90,9 @@ function Signup() {
       return;
     }
 
+    /*
+     * Basic password validation.
+     */
     if (password.length < 8) {
       setError(
         "Password must be at least 8 characters."
@@ -94,26 +107,35 @@ function Signup() {
       /*
        * Create the Cognito account.
        *
-       * We are also storing the selected role
-       * as a Cognito custom attribute.
-       *
        * IMPORTANT:
-       * This requires a Cognito custom attribute
-       * named "role" to exist in your User Pool.
+       *
+       * We use "custom:roles" instead of
+       * "custom:role".
+       *
+       * This allows the same account to have:
+       *
+       * orderer
+       * driver
+       *
+       * Example:
+       *
+       * custom:roles = "orderer"
+       *
+       * Later Login can change it to:
+       *
+       * custom:roles = "orderer,driver"
        */
       const result =
         await signUp({
           username: email,
           password,
+
           options: {
             userAttributes: {
               email,
 
-              /*
-               * Store whether this account
-               * is an orderer or driver.
-               */
-              "custom:role": role,
+              "custom:roles":
+                role,
             },
           },
         });
@@ -123,6 +145,10 @@ function Signup() {
         result
       );
 
+      /*
+       * Cognito requires email
+       * confirmation.
+       */
       if (
         result.nextStep
           .signUpStep ===
@@ -141,6 +167,10 @@ function Signup() {
         return;
       }
 
+      /*
+       * Account created without
+       * additional confirmation.
+       */
       setMessage(
         `Your ${
           isDriver
@@ -148,26 +178,41 @@ function Signup() {
             : "orderer"
         } account was created successfully.`
       );
+
     } catch (err: any) {
+
       console.error(
         "Sign-up error:",
         err
       );
 
       /*
-       * Helpful Cognito errors
+       * Email already exists.
+       *
+       * We DON'T create another account.
+       *
+       * The user should sign in with
+       * the existing account and select
+       * the desired role.
        */
       if (
         err?.name ===
         "UsernameExistsException"
       ) {
         setError(
-          "An account already exists with this email."
+          `An account already exists with this email. Sign in as ${
+            isDriver
+              ? "Driver"
+              : "Orderer"
+          } to use this account for that role.`
         );
 
         return;
       }
 
+      /*
+       * Invalid password.
+       */
       if (
         err?.name ===
         "InvalidPasswordException"
@@ -180,23 +225,26 @@ function Signup() {
       }
 
       /*
-       * This usually means the custom:role
-       * attribute hasn't been added to Cognito yet.
+       * Cognito configuration problem.
        */
       if (
         err?.name ===
         "InvalidParameterException"
       ) {
         setError(
-          "There is a configuration issue with the account role. Please try again."
+          "There is a configuration issue with the account roles. Please verify the Cognito custom:roles attribute."
         );
 
         return;
       }
 
+      /*
+       * Generic error.
+       */
       setError(
         "Unable to create your account. Please check your information and try again."
       );
+
     } finally {
       setLoading(false);
     }
@@ -207,7 +255,7 @@ function Signup() {
 
       {/* =========================
           LEFT SIDE
-      ========================= */}
+      ========================== */}
 
       <section className="login-visual">
 
@@ -244,6 +292,7 @@ function Signup() {
             <div className="map-line"></div>
 
             <div className="location pickup">
+
               <span>
                 📍
               </span>
@@ -251,6 +300,7 @@ function Signup() {
               <small>
                 Pickup
               </small>
+
             </div>
 
             <div className="delivery-car">
@@ -258,6 +308,7 @@ function Signup() {
             </div>
 
             <div className="location destination">
+
               <span>
                 🏁
               </span>
@@ -265,6 +316,7 @@ function Signup() {
               <small>
                 Destination
               </small>
+
             </div>
 
           </div>
@@ -272,6 +324,7 @@ function Signup() {
           <div className="feature-row">
 
             <div>
+
               <strong>
                 {isDriver
                   ? "Find Deliveries"
@@ -283,9 +336,11 @@ function Signup() {
                   ? "Discover available delivery requests."
                   : "Request a delivery in seconds."}
               </span>
+
             </div>
 
             <div>
+
               <strong>
                 {isDriver
                   ? "Manage Deliveries"
@@ -297,6 +352,7 @@ function Signup() {
                   ? "Keep customers updated as you deliver."
                   : "Follow your delivery from pickup to destination."}
               </span>
+
             </div>
 
           </div>
@@ -307,7 +363,7 @@ function Signup() {
 
       {/* =========================
           SIGNUP FORM
-      ========================= */}
+      ========================== */}
 
       <section className="login-form-section">
 
@@ -323,28 +379,40 @@ function Signup() {
             style={{
               display:
                 "inline-flex",
+
               alignItems:
                 "center",
-              gap: "7px",
+
+              gap:
+                "7px",
+
               background:
                 isDriver
                   ? "#f0fdf4"
                   : "#eff6ff",
+
               color:
                 isDriver
                   ? "#166534"
                   : "#1d4ed8",
+
               padding:
                 "6px 11px",
+
               borderRadius:
                 "20px",
+
               fontSize:
                 "12px",
-              fontWeight: 700,
+
+              fontWeight:
+                700,
+
               marginBottom:
                 "16px",
             }}
           >
+
             <span>
               {isDriver
                 ? "🚗"
@@ -354,6 +422,7 @@ function Signup() {
             {isDriver
               ? "Driver Account"
               : "Orderer Account"}
+
           </div>
 
           <h1>
@@ -361,9 +430,11 @@ function Signup() {
           </h1>
 
           <p className="subtitle">
+
             {isDriver
               ? "Create your driver account to start delivering"
               : "Create your account to start requesting deliveries"}
+
           </p>
 
           {error && (
@@ -371,16 +442,24 @@ function Signup() {
               style={{
                 background:
                   "#fee2e2",
+
                 color:
                   "#b91c1c",
+
                 padding:
                   "12px 15px",
+
                 borderRadius:
                   "8px",
+
                 marginBottom:
                   "20px",
+
                 fontSize:
                   "14px",
+
+                lineHeight:
+                  1.5,
               }}
             >
               {error}
@@ -392,16 +471,24 @@ function Signup() {
               style={{
                 background:
                   "#dcfce7",
+
                 color:
                   "#166534",
+
                 padding:
                   "12px 15px",
+
                 borderRadius:
                   "8px",
+
                 marginBottom:
                   "20px",
+
                 fontSize:
                   "14px",
+
+                lineHeight:
+                  1.5,
               }}
             >
               {message}
@@ -418,7 +505,9 @@ function Signup() {
 
             <div className="form-group">
 
-              <label htmlFor="email">
+              <label
+                htmlFor="email"
+              >
                 Email
               </label>
 
@@ -431,8 +520,7 @@ function Signup() {
                   event
                 ) =>
                   setEmail(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 autoComplete="email"
@@ -444,7 +532,9 @@ function Signup() {
 
             <div className="form-group">
 
-              <label htmlFor="password">
+              <label
+                htmlFor="password"
+              >
                 Password
               </label>
 
@@ -457,8 +547,7 @@ function Signup() {
                   event
                 ) =>
                   setPassword(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 autoComplete="new-password"
@@ -470,7 +559,9 @@ function Signup() {
 
             <div className="form-group">
 
-              <label htmlFor="confirmPassword">
+              <label
+                htmlFor="confirmPassword"
+              >
                 Confirm password
               </label>
 
@@ -485,8 +576,7 @@ function Signup() {
                   event
                 ) =>
                   setConfirmPassword(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 autoComplete="new-password"
@@ -501,11 +591,13 @@ function Signup() {
               className="login-button"
               disabled={loading}
             >
+
               {loading
                 ? "Creating account..."
                 : isDriver
                 ? "Create Driver Account"
                 : "Create Orderer Account"}
+
             </button>
 
           </form>
@@ -515,17 +607,15 @@ function Signup() {
           <p
             className="signup-text"
           >
-            Already have a{" "}
-            {isDriver
-              ? "driver"
-              : "orderer"}{" "}
-            account?{" "}
+
+            Already have an account?{" "}
 
             <Link
               to={`/login?role=${role}`}
             >
               Sign in
             </Link>
+
           </p>
 
           {/* Change role */}
@@ -534,23 +624,28 @@ function Signup() {
             style={{
               marginTop:
                 "20px",
+
               textAlign:
                 "center",
             }}
           >
+
             <Link
               to="/"
               style={{
                 color:
                   "#64748b",
+
                 fontSize:
                   "13px",
+
                 textDecoration:
                   "none",
               }}
             >
               ← Choose a different account type
             </Link>
+
           </div>
 
         </div>
