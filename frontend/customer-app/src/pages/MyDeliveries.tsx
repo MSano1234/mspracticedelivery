@@ -26,44 +26,6 @@ const MY_DELIVERIES = `
   }
 `;
 
-const ON_UPDATE_DELIVERY = `
-  subscription OnUpdateDelivery {
-    onUpdateDelivery {
-      deliveryId
-      customerId
-      driverId
-      pickupAddress
-      destinationAddress
-      status
-      estimatedPrice
-      estimatedTime
-      driverLatitude
-      driverLongitude
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-const ON_CREATE_DELIVERY = `
-  subscription OnCreateDelivery {
-    onCreateDelivery {
-      deliveryId
-      customerId
-      driverId
-      pickupAddress
-      destinationAddress
-      status
-      estimatedPrice
-      estimatedTime
-      driverLatitude
-      driverLongitude
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
 type Delivery = {
   deliveryId: string;
   customerId: string;
@@ -104,8 +66,8 @@ export default function MyDeliveries({
 
   /*
    * Keep the latest callback without making the
-   * main loading/subscription effect restart every
-   * time the parent renders.
+   * main polling effect restart every time
+   * the parent renders.
    */
   const callbackRef =
     useRef(onDeliveriesLoaded);
@@ -117,212 +79,165 @@ export default function MyDeliveries({
 
   /*
    * Load the customer's deliveries.
+   *
+   * showLoading = true:
+   * Used for the initial page load.
+   *
+   * showLoading = false:
+   * Used for background polling so the
+   * dashboard does not flash "Loading..."
+   * every 5 seconds.
    */
   const loadDeliveries =
-    useCallback(async () => {
-      try {
-        setLoading(true);
-        setError("");
+    useCallback(
+      async (showLoading = true) => {
+        try {
+          if (showLoading) {
+            setLoading(true);
+          }
 
-        console.log(
-          "Loading customer deliveries..."
-        );
+          setError("");
 
-        const client =
-          generateClient();
+          console.log(
+            "Loading customer deliveries..."
+          );
 
-        const result: any =
-          await client.graphql({
-            query: MY_DELIVERIES,
-            authMode: "userPool",
-          });
+          const client =
+            generateClient();
 
-        console.log(
-          "My deliveries response:",
-          result
-        );
+          const result: any =
+            await client.graphql({
+              query: MY_DELIVERIES,
+              authMode: "userPool",
+            });
 
-        const loadedDeliveries: Delivery[] =
-          result.data?.myDeliveries ?? [];
+          console.log(
+            "My deliveries response:",
+            result
+          );
 
-        console.log(
-          "Customer deliveries:",
-          loadedDeliveries
-        );
+          const loadedDeliveries: Delivery[] =
+            result.data?.myDeliveries ?? [];
 
-        setDeliveries(
-          loadedDeliveries
-        );
-
-        /*
-         * Notify the parent after the data has
-         * been loaded. This happens inside an
-         * effect/callback, not during rendering.
-         */
-        if (callbackRef.current) {
-          callbackRef.current(
+          console.log(
+            "Customer deliveries:",
             loadedDeliveries
           );
-        }
-      } catch (err) {
-        console.error(
-          "Failed to load deliveries:",
-          err
-        );
 
-        setError(
-          "Unable to load your deliveries."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+          setDeliveries(
+            loadedDeliveries
+          );
+
+          /*
+           * Notify the parent after the data
+           * has been loaded.
+           */
+          if (callbackRef.current) {
+            callbackRef.current(
+              loadedDeliveries
+            );
+          }
+        } catch (err) {
+          console.error(
+            "Failed to load deliveries:",
+            err
+          );
+
+          setError(
+            "Unable to load your deliveries."
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      []
+    );
 
   /*
-   * Initial load + real-time subscriptions.
+   * ============================================================
+   * INITIAL LOAD + POLLING
+   * ============================================================
+   *
+   * Instead of relying on AppSync subscriptions,
+   * check AppSync every 5 seconds.
+   *
+   * This means:
+   *
+   * Driver accepts delivery
+   *       ↓
+   * AppSync / DynamoDB updates
+   *       ↓
+   * Customer dashboard checks within 5 seconds
+   *       ↓
+   * Customer sees new status
+   *
+   * No browser refresh required.
    */
+
   useEffect(() => {
-    let updateSubscription:
-      | any
-      | undefined;
-
-    let createSubscription:
-      | any
-      | undefined;
-
     let cancelled = false;
 
     async function start() {
       /*
-       * Initial delivery load.
+       * Initial load.
        */
-      await loadDeliveries();
+      await loadDeliveries(true);
 
       if (cancelled) {
         return;
       }
-
-      const client =
-        generateClient();
-
-      console.log(
-        "Starting delivery subscription..."
-      );
-
-      /*
-       * IMPORTANT:
-       *
-       * Amplify's TypeScript definition can return
-       * UnknownGraphQLResponse here. We know these
-       * operations are subscriptions, so we cast
-       * the result to any before calling subscribe().
-       */
-
-      const updateResponse =
-        client.graphql({
-          query: ON_UPDATE_DELIVERY,
-          authMode: "userPool",
-        }) as any;
-
-      updateSubscription =
-        updateResponse.subscribe({
-          next: (event: any) => {
-            console.log(
-              "REAL-TIME DELIVERY UPDATE:",
-              event
-            );
-
-            /*
-             * Reload the customer's deliveries
-             * so the UI always reflects the latest
-             * server state.
-             */
-            loadDeliveries();
-          },
-
-          error: (subscriptionError: any) => {
-            console.error(
-              "Delivery update subscription error:",
-              subscriptionError
-            );
-          },
-        });
-
-      /*
-       * Listen for newly created deliveries.
-       */
-      const createResponse =
-        client.graphql({
-          query: ON_CREATE_DELIVERY,
-          authMode: "userPool",
-        }) as any;
-
-      createSubscription =
-        createResponse.subscribe({
-          next: (event: any) => {
-            console.log(
-              "REAL-TIME DELIVERY CREATED:",
-              event
-            );
-
-            loadDeliveries();
-          },
-
-          error: (subscriptionError: any) => {
-            console.error(
-              "Delivery creation subscription error:",
-              subscriptionError
-            );
-          },
-        });
     }
 
     start().catch((err) => {
       console.error(
-        "Failed to start delivery subscriptions:",
+        "Failed to load customer deliveries:",
         err
       );
     });
 
     /*
-     * Cleanup when component unmounts.
+     * Background polling every 5 seconds.
+     */
+    const intervalId =
+      window.setInterval(() => {
+        if (!cancelled) {
+          loadDeliveries(false);
+        }
+      }, 5000);
+
+    /*
+     * Stop polling when the component
+     * is removed from the page.
      */
     return () => {
       cancelled = true;
 
-      console.log(
-        "Stopping delivery subscription..."
+      window.clearInterval(
+        intervalId
       );
-
-      if (
-        updateSubscription &&
-        typeof updateSubscription.unsubscribe ===
-          "function"
-      ) {
-        updateSubscription.unsubscribe();
-      }
-
-      if (
-        createSubscription &&
-        typeof createSubscription.unsubscribe ===
-          "function"
-      ) {
-        createSubscription.unsubscribe();
-      }
     };
   }, [loadDeliveries]);
 
   /*
-   * Loading state.
+   * ============================================================
+   * LOADING STATE
+   * ============================================================
    */
+
   if (loading) {
     return (
-      <section style={styles.section}>
-        <h2 style={styles.heading}>
+      <section
+        style={styles.section}
+      >
+        <h2
+          style={styles.heading}
+        >
           My Deliveries
         </h2>
 
-        <p style={styles.loading}>
+        <p
+          style={styles.loading}
+        >
           Loading your deliveries...
         </p>
       </section>
@@ -330,16 +245,25 @@ export default function MyDeliveries({
   }
 
   /*
-   * Error state.
+   * ============================================================
+   * ERROR STATE
+   * ============================================================
    */
+
   if (error) {
     return (
-      <section style={styles.section}>
-        <h2 style={styles.heading}>
+      <section
+        style={styles.section}
+      >
+        <h2
+          style={styles.heading}
+        >
           My Deliveries
         </h2>
 
-        <div style={styles.error}>
+        <div
+          style={styles.error}
+        >
           {error}
         </div>
       </section>
@@ -347,36 +271,57 @@ export default function MyDeliveries({
   }
 
   /*
-   * Empty state.
+   * ============================================================
+   * EMPTY STATE
+   * ============================================================
    */
+
   if (deliveries.length === 0) {
     return (
-      <section style={styles.section}>
-        <h2 style={styles.heading}>
+      <section
+        style={styles.section}
+      >
+        <h2
+          style={styles.heading}
+        >
           My Deliveries
         </h2>
 
-        <div style={styles.empty}>
-          You don't have any deliveries yet.
+        <div
+          style={styles.empty}
+        >
+          You don't have any
+          deliveries yet.
         </div>
       </section>
     );
   }
 
   /*
-   * Delivery list.
+   * ============================================================
+   * DELIVERY LIST
+   * ============================================================
    */
+
   return (
-    <section style={styles.section}>
-      <h2 style={styles.heading}>
+    <section
+      style={styles.section}
+    >
+      <h2
+        style={styles.heading}
+      >
         My Deliveries
       </h2>
 
-      <div style={styles.list}>
+      <div
+        style={styles.list}
+      >
         {deliveries.map(
           (delivery) => (
             <div
-              key={delivery.deliveryId}
+              key={
+                delivery.deliveryId
+              }
               style={styles.card}
             >
               <div
@@ -433,7 +378,9 @@ export default function MyDeliveries({
               </div>
 
               <div
-                style={styles.details}
+                style={
+                  styles.details
+                }
               >
                 {delivery.estimatedPrice !==
                   null &&
@@ -470,14 +417,19 @@ export default function MyDeliveries({
 }
 
 /*
- * Convert enum-style statuses into
- * readable text.
+ * ============================================================
+ * FORMAT STATUS
+ * ============================================================
  */
+
 function formatStatus(
   status: string
 ) {
   return status
-    .replace(/_/g, " ")
+    .replace(
+      /_/g,
+      " "
+    )
     .replace(
       /\b\w/g,
       (letter) =>
@@ -486,8 +438,11 @@ function formatStatus(
 }
 
 /*
- * Status colors.
+ * ============================================================
+ * STATUS COLORS
+ * ============================================================
  */
+
 function getStatusStyle(
   status: string
 ): React.CSSProperties {
@@ -536,6 +491,12 @@ function getStatusStyle(
   }
 }
 
+/*
+ * ============================================================
+ * STYLES
+ * ============================================================
+ */
+
 const styles: Record<
   string,
   React.CSSProperties
@@ -582,7 +543,8 @@ const styles: Record<
     borderRadius: "20px",
     fontSize: "13px",
     fontWeight: 700,
-    textTransform: "capitalize",
+    textTransform:
+      "capitalize",
   },
 
   route: {
