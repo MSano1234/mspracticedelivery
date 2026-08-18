@@ -1667,12 +1667,13 @@ const styles: Record<
     justifyContent: "center",
     background: "#f5f7fb",
     color: "#64748b",
-    fontSize: "16px",
+    fontSize: "14px",
   },
 
   navbar: {
-    minHeight: "72px",
-    padding: "0 32px",
+    minHeight: "58px",
+    height: "58px",
+    padding: "0 24px",
     background: "#ffffff",
     borderBottom:
       "1px solid #e5e7eb",
@@ -1683,7 +1684,7 @@ const styles: Record<
   },
 
   logo: {
-    fontSize: "22px",
+    fontSize: "18px",
     fontWeight: 800,
     color: "#111827",
     display: "flex",
@@ -1702,9 +1703,9 @@ const styles: Record<
   },
 
   driverId: {
-    marginRight: "20px",
+    marginRight: "16px",
     color: "#64748b",
-    fontSize: "13px",
+    fontSize: "12px",
   },
 
   signOutButton: {
@@ -1719,7 +1720,7 @@ const styles: Record<
   container: {
     maxWidth: "1000px",
     margin: "0 auto",
-    padding: "50px 24px",
+    padding: "20px 24px 40px",
   },
 
   headerSection: {
@@ -1727,21 +1728,21 @@ const styles: Record<
     justifyContent:
       "space-between",
     alignItems: "flex-end",
-    marginBottom: "35px",
-    gap: "20px",
+    marginBottom: "16px",
+    gap: "12px",
   },
 
   eyebrow: {
     margin: 0,
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: 700,
     color: "#2563eb",
     letterSpacing: "1px",
   },
 
   title: {
-    margin: "8px 0 8px",
-    fontSize: "36px",
+    margin: "4px 0 4px",
+    fontSize: "30px",
     color: "#111827",
   },
 
@@ -1767,15 +1768,15 @@ const styles: Record<
     color: "#991b1b",
     padding: "18px 20px",
     borderRadius: "10px",
-    marginBottom: "25px",
+    marginBottom: "14px",
     fontWeight: 600,
   },
 
   activeSection: {
     background: "#ffffff",
     borderRadius: "16px",
-    padding: "28px",
-    marginBottom: "45px",
+    padding: "20px 24px",
+    marginBottom: "28px",
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
     border:
@@ -1792,14 +1793,14 @@ const styles: Record<
 
   activeTitle: {
     margin: "6px 0 0",
-    fontSize: "26px",
+    fontSize: "24px",
     color: "#111827",
   },
 
   activeStatus: {
     background: "#dbeafe",
     color: "#1d4ed8",
-    padding: "8px 14px",
+    padding: "6px 12px",
     borderRadius: "20px",
     fontSize: "12px",
     fontWeight: 700,
@@ -1808,22 +1809,22 @@ const styles: Record<
   activeDeliveryId: {
     display: "flex",
     flexDirection: "column",
-    gap: "5px",
-    marginBottom: "22px",
+    gap: "3px",
+    marginBottom: "12px",
   },
 
   noActiveCard: {
     background: "#f8fafc",
     borderRadius: "12px",
-    padding: "45px 25px",
+    padding: "24px 20px",
     textAlign: "center",
     border:
       "1px solid #e5e7eb",
   },
 
   noActiveIcon: {
-    fontSize: "40px",
-    marginBottom: "12px",
+    fontSize: "30px",
+    marginBottom: "8px",
   },
 
   noActiveTitle: {
@@ -1842,7 +1843,7 @@ const styles: Record<
     gridTemplateColumns:
       "repeat(4, 1fr)",
     gap: "10px",
-    padding: "25px 0",
+    padding: "14px 0",
     borderTop:
       "1px solid #e5e7eb",
     borderBottom:
@@ -1854,13 +1855,13 @@ const styles: Record<
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "8px",
+    gap: "5px",
     textAlign: "center",
   },
 
   stageCircle: {
-    width: "30px",
-    height: "30px",
+    width: "28px",
+    height: "28px",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
@@ -1871,7 +1872,7 @@ const styles: Record<
   },
 
   stageLabel: {
-    fontSize: "12px",
+    fontSize: "11px",
     fontWeight: 600,
     color: "#374151",
   },
@@ -1885,7 +1886,7 @@ const styles: Record<
     width: "100%",
     border: "none",
     borderRadius: "10px",
-    padding: "15px",
+    padding: "11px 15px",
     background: "#2563eb",
     color: "#ffffff",
     fontSize: "16px",
@@ -2000,26 +2001,26 @@ const styles: Record<
   status: {
     background: "#fef3c7",
     color: "#92400e",
-    padding: "7px 12px",
+    padding: "6px 11px",
     borderRadius: "20px",
-    fontSize: "12px",
+    fontSize: "11px",
     fontWeight: 700,
   },
 
   routeContainer: {
-    marginBottom: "25px",
+    marginBottom: "12px",
   },
 
   routePoint: {
     display: "flex",
     alignItems: "flex-start",
-    gap: "14px",
+    gap: "10px",
   },
 
   pickupDot: {
     color: "#2563eb",
-    fontSize: "20px",
-    lineHeight: "20px",
+    fontSize: "16px",
+    lineHeight: "16px",
   },
 
   destinationDot: {
@@ -2034,39 +2035,39 @@ const styles: Record<
     fontWeight: 700,
     color: "#64748b",
     letterSpacing: "0.7px",
-    marginBottom: "4px",
+    marginBottom: "2px",
   },
 
   address: {
     margin: 0,
     color: "#111827",
-    fontSize: "15px",
-    lineHeight: "1.5",
+    fontSize: "14px",
+    lineHeight: "1.35",
   },
 
   routeLine: {
     width: "1px",
-    height: "25px",
+    height: "16px",
     background: "#d1d5db",
-    marginLeft: "8px",
-    marginTop: "2px",
-    marginBottom: "2px",
+    marginLeft: "6px",
+    marginTop: "1px",
+    marginBottom: "1px",
   },
 
   details: {
     display: "flex",
-    gap: "50px",
+    gap: "40px",
     borderTop:
       "1px solid #e5e7eb",
-    paddingTop: "20px",
-    marginTop: "20px",
-    marginBottom: "20px",
+    paddingTop: "12px",
+    marginTop: "12px",
+    marginBottom: "12px",
   },
 
   detailItem: {
     display: "flex",
     flexDirection: "column",
-    gap: "5px",
+    gap: "3px",
   },
 
   detailLabel: {
