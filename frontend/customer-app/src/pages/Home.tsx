@@ -68,30 +68,61 @@ function Home() {
         );
 
         /*
-         * Read the custom role attribute.
+         * SwiftDrop supports multiple roles on the
+         * same Cognito account.
          *
-         * Expected values:
+         * Example:
          *
-         * custom:role = "orderer"
+         * custom:roles = "orderer,driver"
+         *
+         * We also support the older:
+         *
          * custom:role = "driver"
          */
-        const role =
+
+        const rolesValue =
+          attributes["custom:roles"];
+
+        const legacyRole =
           attributes["custom:role"];
 
+        const roles = rolesValue
+          ? rolesValue
+              .split(",")
+              .map((role) =>
+                role
+                  .trim()
+                  .toLowerCase()
+              )
+              .filter(Boolean)
+          : legacyRole
+            ? [
+                legacyRole
+                  .trim()
+                  .toLowerCase(),
+              ]
+            : [];
+
         console.log(
-          "Authenticated user role:",
-          role
+          "SwiftDrop user roles:",
+          roles
         );
 
         /*
          * DRIVER
          *
-         * Drivers should not use the customer
-         * dashboard.
+         * If the account contains the driver role,
+         * use the Driver Dashboard.
+         *
+         * This works for:
+         *
+         * driver
+         * orderer,driver
+         * driver,orderer
          */
-        if (role === "driver") {
+        if (roles.includes("driver")) {
           console.log(
-            "Driver detected. Redirecting to driver dashboard."
+            "Driver role detected. Redirecting to driver dashboard."
           );
 
           navigate(
@@ -106,24 +137,27 @@ function Home() {
 
         /*
          * ORDERER
-         *
-         * Continue to the customer dashboard.
          */
         if (
-          role === "orderer" ||
-          !role
+          roles.includes("orderer") ||
+          roles.length === 0
         ) {
           if (!mounted) {
             return;
           }
 
           /*
-           * Use the user's email instead of
-           * displaying the Cognito UUID.
+           * Display a friendly account value
+           * instead of the Cognito UUID.
            */
           setUserEmail(
             attributes.email ||
-            attributes.given_name ||
+            [
+              attributes.given_name,
+              attributes.family_name,
+            ]
+              .filter(Boolean)
+              .join(" ") ||
             "Account"
           );
 
@@ -136,8 +170,8 @@ function Home() {
          * Unknown role.
          */
         console.error(
-          "Unknown SwiftDrop user role:",
-          role
+          "Unknown SwiftDrop user roles:",
+          roles
         );
 
         setCheckingAuth(false);
