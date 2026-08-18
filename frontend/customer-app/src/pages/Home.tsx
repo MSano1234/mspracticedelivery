@@ -252,34 +252,6 @@ function Home() {
       <main className="home-content">
 
         {/* =========================
-            WELCOME SECTION
-        ========================== */}
-
-        <section className="welcome-section">
-
-          <p className="eyebrow">
-            CUSTOMER DASHBOARD
-          </p>
-
-          <h1>
-            Deliver anything, anywhere.
-          </h1>
-
-          <p>
-            Request a delivery and track your
-            driver in real time.
-          </p>
-
-          <Link
-            to="/create-delivery"
-            className="primary-button"
-          >
-            Request a Delivery
-          </Link>
-
-        </section>
-
-        {/* =========================
             ACTIVE DELIVERY
         ========================== */}
 
@@ -603,6 +575,36 @@ function Home() {
           )}
 
         </section>
+
+
+        {/* =========================
+            WELCOME SECTION
+        ========================== */}
+
+        <section className="welcome-section">
+
+          <p className="eyebrow">
+            CUSTOMER DASHBOARD
+          </p>
+
+          <h1>
+            Deliver anything, anywhere.
+          </h1>
+
+          <p>
+            Request a delivery and track your
+            driver in real time.
+          </p>
+
+          <Link
+            to="/create-delivery"
+            className="primary-button"
+          >
+            Request a Delivery
+          </Link>
+
+        </section>
+
 
         {/* =========================
             MY DELIVERIES
