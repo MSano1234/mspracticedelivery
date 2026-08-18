@@ -661,7 +661,6 @@ function DriverDashboard() {
       <main
         style={styles.container}
       >
-
         {/* =========================
             HEADER
         ========================== */}
@@ -1090,6 +1089,33 @@ function DriverDashboard() {
             </>
           )}
         </section>
+
+
+        {/* =========================
+            ERROR
+        ========================== */}
+
+        {error && (
+          <div
+            style={styles.error}
+          >
+            <strong>
+              Error
+            </strong>
+
+            <p
+              style={{
+                margin: "8px 0 0",
+                whiteSpace:
+                  "pre-wrap",
+                wordBreak:
+                  "break-word",
+              }}
+            >
+              {error}
+            </p>
+          </div>
+        )}
 
         {/* =========================
             AVAILABLE DELIVERIES
