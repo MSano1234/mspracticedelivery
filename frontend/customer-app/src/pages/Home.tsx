@@ -117,8 +117,14 @@ function Home() {
             return;
           }
 
+          /*
+           * Use the user's email instead of
+           * displaying the Cognito UUID.
+           */
           setUserEmail(
-            user.username
+            attributes.email ||
+            attributes.given_name ||
+            "Account"
           );
 
           setCheckingAuth(false);

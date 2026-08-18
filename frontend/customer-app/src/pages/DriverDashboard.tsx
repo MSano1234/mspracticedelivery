@@ -1,25 +1,11 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type CSSProperties,
-} from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import { generateClient } from "aws-amplify/api";
-
 import {
   fetchUserAttributes,
   getCurrentUser,
   signOut,
 } from "aws-amplify/auth";
-
 import { useNavigate } from "react-router-dom";
-
-/*
- * ============================================================
- * GRAPHQL QUERIES
- * ============================================================
- */
 
 const LIST_DELIVERIES = `
   query ListDeliveries {
@@ -65,28 +51,17 @@ const UPDATE_DELIVERY = `
   }
 `;
 
-/*
- * ============================================================
- * TYPES
- * ============================================================
- */
-
 type Delivery = {
   deliveryId: string;
   customerId: string;
   driverId?: string | null;
-
   pickupAddress: string;
   destinationAddress: string;
-
   status: string;
-
   estimatedPrice?: number | null;
   estimatedTime?: string | null;
-
   driverLatitude?: number | null;
   driverLongitude?: number | null;
-
   createdAt: string;
   updatedAt: string;
 };
@@ -100,146 +75,62 @@ type UpdateDeliveryInput = {
   driverLongitude?: number;
 };
 
-/*
- * ============================================================
- * DRIVER DASHBOARD
- * ============================================================
- */
-
 function DriverDashboard() {
   const navigate = useNavigate();
 
   const [driverId, setDriverId] = useState("");
-
-  const [deliveries, setDeliveries] = useState<Delivery[]>(
-    []
-  );
-
+  const [driverDisplayName, setDriverDisplayName] =
+    useState("");
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [activeDelivery, setActiveDelivery] =
     useState<Delivery | null>(null);
-
   const [completedDeliveries, setCompletedDeliveries] =
     useState<Delivery[]>([]);
 
   const [loading, setLoading] = useState(true);
-
-  const [authorized, setAuthorized] =
-    useState(false);
-
+  const [authorized, setAuthorized] = useState(false);
   const [error, setError] = useState("");
-
   const [updatingDelivery, setUpdatingDelivery] =
     useState<string | null>(null);
 
   /*
-   * ==========================================================
-   * AUTHENTICATION
-   * ==========================================================
+   * Authenticate user and verify Cognito role.
    *
-   * IMPORTANT:
+   * Only:
    *
-   * SwiftDrop now supports multiple roles.
+   * custom:role = driver
    *
-   * Examples:
-   *
-   * custom:roles = "driver"
-   * custom:roles = "orderer,driver"
-   * custom:roles = "driver,orderer"
-   *
-   * We also continue supporting the older:
-   *
-   * custom:role = "driver"
+   * may access this dashboard.
    */
-
   useEffect(() => {
     let mounted = true;
 
     async function checkAuthentication() {
       try {
-        /*
-         * Get currently authenticated Cognito user.
-         */
         const user = await getCurrentUser();
 
-        console.log(
-          "Authenticated user:",
-          user
-        );
+        console.log("Authenticated user:", user);
 
-        /*
-         * Get Cognito attributes.
-         */
-        const attributes =
-          await fetchUserAttributes();
+        const attributes = await fetchUserAttributes();
 
         console.log(
           "Authenticated user attributes:",
           attributes
         );
 
-        /*
-         * ======================================================
-         * MULTI-ROLE SUPPORT
-         * ======================================================
-         */
-
-        const rolesValue =
-          attributes["custom:roles"];
-
-        /*
-         * Legacy role support.
-         */
-        const legacyRole =
-          attributes["custom:role"];
-
-        /*
-         * Build role array.
-         *
-         * Example:
-         *
-         * "orderer,driver"
-         *
-         * becomes:
-         *
-         * ["orderer", "driver"]
-         */
-
-        const roles = rolesValue
-          ? rolesValue
-              .split(",")
-              .map((role) =>
-                role
-                  .trim()
-                  .toLowerCase()
-              )
-              .filter(Boolean)
-          : legacyRole
-            ? [
-                legacyRole
-                  .trim()
-                  .toLowerCase(),
-              ]
-            : [];
+        const role = attributes["custom:role"];
 
         console.log(
-          "SwiftDrop user roles:",
-          roles
+          "Authenticated user role:",
+          role
         );
 
         /*
-         * ======================================================
-         * DRIVER ACCESS CHECK
-         * ======================================================
-         *
-         * The important part:
-         *
-         * We check whether "driver" exists anywhere
-         * in the user's roles.
+         * Not a driver.
          */
-
-        if (!roles.includes("driver")) {
+        if (role !== "driver") {
           console.log(
-            "User does not have the driver role."
+            "User is not a driver. Redirecting to customer dashboard."
           );
 
           navigate("/home", {
@@ -250,19 +141,30 @@ function DriverDashboard() {
         }
 
         /*
-         * ======================================================
-         * AUTHORIZED DRIVER
-         * ======================================================
+         * Valid driver.
          */
-
         if (!mounted) {
           return;
         }
 
         setDriverId(user.userId);
 
-        setAuthorized(true);
+        const displayName =
+          [
+            attributes.given_name,
+            attributes.family_name,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          attributes.email ||
+          "Driver";
 
+        setDriverDisplayName(
+          displayName
+        );
+
+        setAuthorized(true);
         setLoading(false);
       } catch (authError) {
         console.error(
@@ -284,209 +186,179 @@ function DriverDashboard() {
   }, [navigate]);
 
   /*
-   * ============================================================
-   * LOAD DELIVERIES
-   * ============================================================
+   * Load deliveries.
    */
+  const loadDeliveries = useCallback(async (showLoading = true) => {
+    if (!driverId || !authorized) {
+      return;
+    }
 
-  const loadDeliveries = useCallback(
-    async (showLoading = true) => {
-      if (!driverId || !authorized) {
-        return;
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+      setError("");
+
+      console.log(
+        "Loading driver deliveries..."
+      );
+
+      const client = generateClient();
+
+      const response: any =
+        await client.graphql({
+          query: LIST_DELIVERIES,
+          authMode: "userPool",
+        });
+
+      console.log(
+        "All deliveries response:",
+        response
+      );
+
+      const allDeliveries: Delivery[] =
+        response.data?.listDeliveries ?? [];
+
+      console.log(
+        "ALL DELIVERIES:",
+        allDeliveries
+      );
+
+      /*
+       * Available delivery requests.
+       */
+      const requestedDeliveries =
+        allDeliveries.filter(
+          (delivery) =>
+            delivery.status === "REQUESTED"
+        );
+
+      /*
+       * Active deliveries assigned
+       * to this driver.
+       */
+      const myActiveDeliveries =
+        allDeliveries.filter(
+          (delivery) =>
+            delivery.driverId === driverId &&
+            [
+              "ACCEPTED",
+              "PICKED_UP",
+              "IN_TRANSIT",
+            ].includes(delivery.status)
+        );
+
+      /*
+       * Completed deliveries assigned
+       * to this driver.
+       */
+      const myCompletedDeliveries =
+        allDeliveries.filter(
+          (delivery) =>
+            delivery.driverId === driverId &&
+            delivery.status === "DELIVERED"
+        );
+
+      console.log(
+        "REQUESTED DELIVERIES:",
+        requestedDeliveries
+      );
+
+      console.log(
+        "MY ACTIVE DELIVERIES:",
+        myActiveDeliveries
+      );
+
+      console.log(
+        "MY COMPLETED DELIVERIES:",
+        myCompletedDeliveries
+      );
+
+      setDeliveries(requestedDeliveries);
+
+      /*
+       * Display first active delivery.
+       */
+      if (myActiveDeliveries.length > 0) {
+        setActiveDelivery(
+          myActiveDeliveries[0]
+        );
+      } else {
+        setActiveDelivery(null);
       }
 
-      try {
-        if (showLoading) {
-          setLoading(true);
-        }
+      setCompletedDeliveries(
+        myCompletedDeliveries
+      );
+    } catch (err: any) {
+      console.error(
+        "FAILED TO LOAD DELIVERIES:",
+        JSON.stringify(
+          err,
+          null,
+          2
+        )
+      );
 
-        setError("");
+      console.error(
+        "RAW ERROR:",
+        err
+      );
 
-        console.log(
-          "Loading driver deliveries..."
-        );
+      let errorMessage =
+        "Unable to load deliveries.";
 
-        const client = generateClient();
-
-        const response: any =
-          await client.graphql({
-            query: LIST_DELIVERIES,
-            authMode: "userPool",
-          });
-
-        console.log(
-          "All deliveries response:",
-          response
-        );
-
-        const allDeliveries: Delivery[] =
-          response.data?.listDeliveries ?? [];
-
-        console.log(
-          "ALL DELIVERIES:",
-          allDeliveries
-        );
-
-        /*
-         * ======================================================
-         * AVAILABLE DELIVERY REQUESTS
-         * ======================================================
-         */
-
-        const requestedDeliveries =
-          allDeliveries.filter(
-            (delivery) =>
-              delivery.status ===
-              "REQUESTED"
-          );
-
-        /*
-         * ======================================================
-         * ACTIVE DELIVERIES
-         * ======================================================
-         */
-
-        const myActiveDeliveries =
-          allDeliveries.filter(
-            (delivery) =>
-              delivery.driverId ===
-                driverId &&
-              [
-                "ACCEPTED",
-                "PICKED_UP",
-                "IN_TRANSIT",
-              ].includes(
-                delivery.status
-              )
-          );
-
-        /*
-         * ======================================================
-         * COMPLETED DELIVERIES
-         * ======================================================
-         */
-
-        const myCompletedDeliveries =
-          allDeliveries.filter(
-            (delivery) =>
-              delivery.driverId ===
-                driverId &&
-              delivery.status ===
-                "DELIVERED"
-          );
-
-        console.log(
-          "REQUESTED DELIVERIES:",
-          requestedDeliveries
-        );
-
-        console.log(
-          "MY ACTIVE DELIVERIES:",
-          myActiveDeliveries
-        );
-
-        console.log(
-          "MY COMPLETED DELIVERIES:",
-          myCompletedDeliveries
-        );
-
-        /*
-         * Update available deliveries.
-         */
-
-        setDeliveries(
-          requestedDeliveries
-        );
-
-        /*
-         * Display first active delivery.
-         */
-
-        if (
-          myActiveDeliveries.length > 0
-        ) {
-          setActiveDelivery(
-            myActiveDeliveries[0]
-          );
-        } else {
-          setActiveDelivery(null);
-        }
-
-        /*
-         * Update completed deliveries.
-         */
-
-        setCompletedDeliveries(
-          myCompletedDeliveries
-        );
-      } catch (err: any) {
-        console.error(
-          "FAILED TO LOAD DELIVERIES:",
-          JSON.stringify(
-            err,
-            null,
-            2
-          )
-        );
-
-        console.error(
-          "RAW ERROR:",
-          err
-        );
-
-        let errorMessage =
-          "Unable to load deliveries.";
-
-        if (err?.errors?.length > 0) {
-          errorMessage =
-            err.errors
-              .map(
-                (item: any) =>
-                  item.message ||
-                  JSON.stringify(item)
-              )
-              .join(" | ");
-        } else if (err?.message) {
-          errorMessage =
-            err.message;
-        }
-
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
+      if (err?.errors?.length > 0) {
+        errorMessage =
+          err.errors
+            .map(
+              (item: any) =>
+                item.message ||
+                JSON.stringify(item)
+            )
+            .join(" | ");
+      } else if (err?.message) {
+        errorMessage = err.message;
       }
-    },
-    [driverId, authorized]
-  );
+
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [driverId, authorized]);
 
   /*
-   * ============================================================
-   * INITIAL LOAD + AUTO REFRESH
-   * ============================================================
+   * Load deliveries once authentication
+   * and driver role are confirmed.
    */
-
   useEffect(() => {
     if (!driverId || !authorized) {
       return;
     }
 
-    /*
-     * Initial load.
-     */
-    loadDeliveries(true);
+    loadDeliveries();
+  }, [
+    driverId,
+    authorized,
+    loadDeliveries,
+  ]);
 
-    /*
-     * Refresh every 5 seconds.
-     */
-    const intervalId =
-      window.setInterval(() => {
-        loadDeliveries(false);
-      }, 5000);
+  /*
+   * Poll for new delivery requests while the driver dashboard
+   * remains open. This keeps the dashboard current without
+   * requiring the driver to refresh the page.
+   */
+  useEffect(() => {
+    if (!driverId || !authorized) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadDeliveries(false);
+    }, 5000);
 
     return () => {
-      window.clearInterval(
-        intervalId
-      );
+      window.clearInterval(intervalId);
     };
   }, [
     driverId,
@@ -495,20 +367,14 @@ function DriverDashboard() {
   ]);
 
   /*
-   * ============================================================
-   * UPDATE DELIVERY
-   * ============================================================
+   * Update delivery.
    */
-
   const updateDelivery = async (
     deliveryId: string,
     input: UpdateDeliveryInput
   ) => {
     try {
-      setUpdatingDelivery(
-        deliveryId
-      );
-
+      setUpdatingDelivery(deliveryId);
       setError("");
 
       console.log(
@@ -521,8 +387,7 @@ function DriverDashboard() {
         input
       );
 
-      const client =
-        generateClient();
+      const client = generateClient();
 
       const response: any =
         await client.graphql({
@@ -554,9 +419,9 @@ function DriverDashboard() {
       );
 
       /*
-       * Immediately update active delivery.
+       * Immediately update active delivery
+       * in the UI.
        */
-
       if (
         updatedDelivery.status !==
         "DELIVERED"
@@ -569,9 +434,8 @@ function DriverDashboard() {
       }
 
       /*
-       * Reload from AppSync / DynamoDB.
+       * Reload from AppSync/DynamoDB.
        */
-
       await loadDeliveries();
     } catch (err: any) {
       console.error(
@@ -601,8 +465,7 @@ function DriverDashboard() {
             )
             .join(" | ");
       } else if (err?.message) {
-        errorMessage =
-          err.message;
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
@@ -612,54 +475,43 @@ function DriverDashboard() {
   };
 
   /*
-   * ============================================================
-   * ACCEPT DELIVERY
-   * ============================================================
+   * Accept delivery.
    */
+  const handleAcceptDelivery = async (
+    deliveryId: string
+  ) => {
+    if (!driverId) {
+      return;
+    }
 
-  const handleAcceptDelivery =
-    async (
-      deliveryId: string
-    ) => {
-      if (!driverId) {
-        return;
+    await updateDelivery(
+      deliveryId,
+      {
+        driverId,
+        status: "ACCEPTED",
       }
-
-      await updateDelivery(
-        deliveryId,
-        {
-          driverId,
-          status: "ACCEPTED",
-        }
-      );
-    };
+    );
+  };
 
   /*
-   * ============================================================
-   * PICKED UP
-   * ============================================================
+   * Mark picked up.
    */
+  const handlePickedUp = async () => {
+    if (!activeDelivery) {
+      return;
+    }
 
-  const handlePickedUp =
-    async () => {
-      if (!activeDelivery) {
-        return;
+    await updateDelivery(
+      activeDelivery.deliveryId,
+      {
+        status: "PICKED_UP",
       }
-
-      await updateDelivery(
-        activeDelivery.deliveryId,
-        {
-          status: "PICKED_UP",
-        }
-      );
-    };
+    );
+  };
 
   /*
-   * ============================================================
-   * START DELIVERY
-   * ============================================================
+   * Start delivery.
    */
-
   const handleStartDelivery =
     async () => {
       if (!activeDelivery) {
@@ -675,57 +527,48 @@ function DriverDashboard() {
     };
 
   /*
-   * ============================================================
-   * MARK DELIVERED
-   * ============================================================
+   * Mark delivered.
    */
+  const handleDelivered = async () => {
+    if (!activeDelivery) {
+      return;
+    }
 
-  const handleDelivered =
-    async () => {
-      if (!activeDelivery) {
-        return;
+    await updateDelivery(
+      activeDelivery.deliveryId,
+      {
+        status: "DELIVERED",
       }
+    );
+  };
 
-      await updateDelivery(
-        activeDelivery.deliveryId,
-        {
-          status: "DELIVERED",
-        }
+  /*
+   * Sign out.
+   */
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+
+      navigate("/", {
+        replace: true,
+      });
+    } catch (error) {
+      console.error(
+        "Sign-out error:",
+        error
       );
-    };
+    }
+  };
 
   /*
-   * ============================================================
-   * SIGN OUT
-   * ============================================================
+   * Authentication loading.
    */
-
-  const handleSignOut =
-    async () => {
-      try {
-        await signOut();
-
-        navigate("/", {
-          replace: true,
-        });
-      } catch (error) {
-        console.error(
-          "Sign-out error:",
-          error
-        );
-      }
-    };
-
-  /*
-   * ============================================================
-   * AUTH LOADING
-   * ============================================================
-   */
-
   if (!authorized) {
     return (
       <div
-        style={styles.loadingPage}
+        style={
+          styles.loadingPage
+        }
       >
         <p>
           Verifying driver account...
@@ -735,15 +578,14 @@ function DriverDashboard() {
   }
 
   /*
-   * ============================================================
-   * DELIVERY LOADING
-   * ============================================================
+   * Delivery loading.
    */
-
   if (loading) {
     return (
       <div
-        style={styles.loadingPage}
+        style={
+          styles.loadingPage
+        }
       >
         <p>
           Loading driver dashboard...
@@ -752,18 +594,12 @@ function DriverDashboard() {
     );
   }
 
-  /*
-   * ============================================================
-   * DASHBOARD
-   * ============================================================
-   */
-
   return (
     <div style={styles.page}>
 
-      {/* ======================================================
+      {/* =========================
           NAVIGATION
-      ======================================================= */}
+      ========================== */}
 
       <header
         style={styles.navbar}
@@ -793,7 +629,7 @@ function DriverDashboard() {
               styles.driverId
             }
           >
-            {driverId}
+            {driverDisplayName || "Driver"}
           </span>
 
           <button
@@ -814,9 +650,9 @@ function DriverDashboard() {
         style={styles.container}
       >
 
-        {/* ====================================================
+        {/* =========================
             HEADER
-        ===================================================== */}
+        ========================== */}
 
         <section
           style={
@@ -825,7 +661,9 @@ function DriverDashboard() {
         >
           <div>
             <p
-              style={styles.eyebrow}
+              style={
+                styles.eyebrow
+              }
             >
               DRIVER DASHBOARD
             </p>
@@ -837,7 +675,9 @@ function DriverDashboard() {
             </h1>
 
             <p
-              style={styles.subtitle}
+              style={
+                styles.subtitle
+              }
             >
               Manage available and
               active deliveries.
@@ -847,7 +687,7 @@ function DriverDashboard() {
           <button
             type="button"
             onClick={() =>
-              loadDeliveries()
+              loadDeliveries(true)
             }
             style={
               styles.refreshButton
@@ -857,9 +697,9 @@ function DriverDashboard() {
           </button>
         </section>
 
-        {/* ====================================================
+        {/* =========================
             ERROR
-        ===================================================== */}
+        ========================== */}
 
         {error && (
           <div
@@ -883,9 +723,9 @@ function DriverDashboard() {
           </div>
         )}
 
-        {/* ====================================================
+        {/* =========================
             ACTIVE DELIVERY
-        ===================================================== */}
+        ========================== */}
 
         <section
           style={
@@ -955,9 +795,8 @@ function DriverDashboard() {
                   styles.noActiveText
                 }
               >
-                Accept a delivery
-                request to start
-                managing it here.
+                Accept a delivery request
+                to start managing it here.
               </p>
             </div>
           ) : (
@@ -1081,16 +920,14 @@ function DriverDashboard() {
                   </span>
 
                   <strong>
-                    {
-                      activeDelivery.estimatedPrice !==
-                        null &&
-                      activeDelivery.estimatedPrice !==
-                        undefined
-                        ? `$${activeDelivery.estimatedPrice.toFixed(
-                            2
-                          )}`
-                        : "—"
-                    }
+                    {activeDelivery.estimatedPrice !==
+                      null &&
+                    activeDelivery.estimatedPrice !==
+                      undefined
+                      ? `$${activeDelivery.estimatedPrice.toFixed(
+                          2
+                        )}`
+                      : "—"}
                   </strong>
                 </div>
 
@@ -1242,9 +1079,9 @@ function DriverDashboard() {
           )}
         </section>
 
-        {/* ====================================================
+        {/* =========================
             AVAILABLE DELIVERIES
-        ===================================================== */}
+        ========================== */}
 
         <section
           style={
@@ -1283,8 +1120,7 @@ function DriverDashboard() {
             </span>
           </div>
 
-          {deliveries.length ===
-          0 ? (
+          {deliveries.length === 0 ? (
             <div
               style={
                 styles.emptyCard
@@ -1311,8 +1147,8 @@ function DriverDashboard() {
                   styles.emptyText
                 }
               >
-                New delivery requests
-                will appear here.
+                New delivery requests will
+                appear here.
               </p>
             </div>
           ) : (
@@ -1466,16 +1302,14 @@ function DriverDashboard() {
                         </span>
 
                         <strong>
-                          {
-                            delivery.estimatedPrice !==
-                              null &&
-                            delivery.estimatedPrice !==
-                              undefined
-                              ? `$${delivery.estimatedPrice.toFixed(
-                                  2
-                                )}`
-                              : "—"
-                          }
+                          {delivery.estimatedPrice !==
+                            null &&
+                          delivery.estimatedPrice !==
+                            undefined
+                            ? `$${delivery.estimatedPrice.toFixed(
+                                2
+                              )}`
+                            : "—"}
                         </strong>
                       </div>
 
@@ -1528,9 +1362,9 @@ function DriverDashboard() {
           )}
         </section>
 
-        {/* ====================================================
+        {/* =========================
             COMPLETED DELIVERIES
-        ===================================================== */}
+        ========================== */}
 
         <section
           style={
@@ -1565,9 +1399,7 @@ function DriverDashboard() {
                 styles.completedCountBadge
               }
             >
-              {
-                completedDeliveries.length
-              }
+              {completedDeliveries.length}
             </span>
           </div>
 
@@ -1579,8 +1411,8 @@ function DriverDashboard() {
               }
             >
               <p>
-                Completed deliveries
-                will appear here.
+                Completed deliveries will
+                appear here.
               </p>
             </div>
           ) : (
@@ -1695,16 +1527,14 @@ function DriverDashboard() {
                       }
                     >
                       <span>
-                        {
-                          delivery.estimatedPrice !==
-                            null &&
-                          delivery.estimatedPrice !==
-                            undefined
-                            ? `$${delivery.estimatedPrice.toFixed(
-                                2
-                              )}`
-                            : "Price unavailable"
-                        }
+                        {delivery.estimatedPrice !==
+                          null &&
+                        delivery.estimatedPrice !==
+                          undefined
+                          ? `$${delivery.estimatedPrice.toFixed(
+                              2
+                            )}`
+                          : "Price unavailable"}
                       </span>
 
                       <span>
@@ -1726,17 +1556,15 @@ function DriverDashboard() {
             </div>
           )}
         </section>
+
       </main>
     </div>
   );
 }
 
 /*
- * ============================================================
- * DELIVERY STAGE
- * ============================================================
+ * Delivery progress stage.
  */
-
 function DeliveryStage({
   label,
   active,
@@ -1748,9 +1576,7 @@ function DeliveryStage({
     <div
       style={{
         ...styles.stage,
-        opacity: active
-          ? 1
-          : 0.35,
+        opacity: active ? 1 : 0.35,
       }}
     >
       <div
@@ -1776,11 +1602,8 @@ function DeliveryStage({
 }
 
 /*
- * ============================================================
- * FORMAT STATUS
- * ============================================================
+ * Format delivery status.
  */
-
 function formatStatus(
   status: string
 ) {
@@ -1790,15 +1613,9 @@ function formatStatus(
   );
 }
 
-/*
- * ============================================================
- * STYLES
- * ============================================================
- */
-
 const styles: Record<
   string,
-  CSSProperties
+  React.CSSProperties
 > = {
   page: {
     minHeight: "100vh",
