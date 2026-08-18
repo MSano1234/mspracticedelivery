@@ -79,6 +79,7 @@ function DriverDashboard() {
   const navigate = useNavigate();
 
   const [driverId, setDriverId] = useState("");
+  const [driverEmail, setDriverEmail] = useState("");
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [activeDelivery, setActiveDelivery] =
     useState<Delivery | null>(null);
@@ -178,6 +179,7 @@ function DriverDashboard() {
         }
 
         setDriverId(user.userId);
+        setDriverEmail(attributes["email"] || "");
         setAuthorized(true);
         setLoading(false);
       } catch (authError) {
@@ -342,13 +344,34 @@ function DriverDashboard() {
   /*
    * Load deliveries once authentication
    * and driver role are confirmed.
+   *
+   * Poll every 5 seconds so new REQUESTED
+   * deliveries appear automatically without
+   * the driver refreshing the page.
    */
   useEffect(() => {
     if (!driverId || !authorized) {
       return;
     }
 
-    loadDeliveries();
+    let cancelled = false;
+
+    const refreshDeliveries = async () => {
+      if (!cancelled) {
+        await loadDeliveries();
+      }
+    };
+
+    refreshDeliveries();
+
+    const intervalId = window.setInterval(() => {
+      refreshDeliveries();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [
     driverId,
     authorized,
@@ -618,7 +641,7 @@ function DriverDashboard() {
               styles.driverId
             }
           >
-            {driverId}
+            {driverEmail || "Driver"}
           </span>
 
           <button
