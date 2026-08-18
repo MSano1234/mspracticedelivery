@@ -68,113 +68,50 @@ function Home() {
         );
 
         /*
-         * SwiftDrop supports multiple roles on the
-         * same Cognito account.
+         * IMPORTANT:
          *
-         * Example:
+         * Home is the Orderer dashboard.
+         *
+         * A SwiftDrop account can have BOTH:
          *
          * custom:roles = "orderer,driver"
          *
-         * We also support the older:
+         * We do NOT redirect based on whether the
+         * account has the driver role here.
          *
-         * custom:role = "driver"
+         * Login.tsx already handles the user's
+         * selected role and sends:
+         *
+         * Driver  -> /driver-dashboard
+         * Orderer -> /home
+         *
+         * Therefore Home only verifies that the user
+         * is authenticated and then loads the Orderer
+         * dashboard.
          */
 
-        const rolesValue =
-          attributes["custom:roles"];
-
-        const legacyRole =
-          attributes["custom:role"];
-
-        const roles = rolesValue
-          ? rolesValue
-              .split(",")
-              .map((role) =>
-                role
-                  .trim()
-                  .toLowerCase()
-              )
-              .filter(Boolean)
-          : legacyRole
-            ? [
-                legacyRole
-                  .trim()
-                  .toLowerCase(),
-              ]
-            : [];
-
-        console.log(
-          "SwiftDrop user roles:",
-          roles
-        );
-
-        /*
-         * DRIVER
-         *
-         * If the account contains the driver role,
-         * use the Driver Dashboard.
-         *
-         * This works for:
-         *
-         * driver
-         * orderer,driver
-         * driver,orderer
-         */
-        if (roles.includes("driver")) {
-          console.log(
-            "Driver role detected. Redirecting to driver dashboard."
-          );
-
-          navigate(
-            "/driver-dashboard",
-            {
-              replace: true,
-            }
-          );
-
+        if (!mounted) {
           return;
         }
 
         /*
-         * ORDERER
+         * Display a friendly account value instead
+         * of the Cognito UUID.
          */
-        if (
-          roles.includes("orderer") ||
-          roles.length === 0
-        ) {
-          if (!mounted) {
-            return;
-          }
-
-          /*
-           * Display a friendly account value
-           * instead of the Cognito UUID.
-           */
-          setUserEmail(
-            attributes.email ||
-            [
-              attributes.given_name,
-              attributes.family_name,
-            ]
-              .filter(Boolean)
-              .join(" ") ||
-            "Account"
-          );
-
-          setCheckingAuth(false);
-
-          return;
-        }
-
-        /*
-         * Unknown role.
-         */
-        console.error(
-          "Unknown SwiftDrop user roles:",
-          roles
+        setUserEmail(
+          attributes.email ||
+          [
+            attributes.given_name,
+            attributes.family_name,
+          ]
+            .filter(Boolean)
+            .join(" ") ||
+          "Account"
         );
 
         setCheckingAuth(false);
+
+        return;
 
       } catch (error) {
         console.log(
