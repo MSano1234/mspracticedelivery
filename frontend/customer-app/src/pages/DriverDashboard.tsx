@@ -79,8 +79,6 @@ function DriverDashboard() {
   const navigate = useNavigate();
 
   const [driverId, setDriverId] = useState("");
-  const [driverDisplayName, setDriverDisplayName] =
-    useState("");
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [activeDelivery, setActiveDelivery] =
     useState<Delivery | null>(null);
@@ -118,17 +116,49 @@ function DriverDashboard() {
           attributes
         );
 
-        const role = attributes["custom:role"];
+        /*
+         * SwiftDrop supports multiple roles on the
+         * same Cognito account.
+         *
+         * Example:
+         *
+         * custom:roles = "orderer,driver"
+         *
+         * We also support the legacy:
+         *
+         * custom:role = "driver"
+         */
+        const rolesValue =
+          attributes["custom:roles"];
+
+        const legacyRole =
+          attributes["custom:role"];
+
+        const roles = rolesValue
+          ? rolesValue
+              .split(",")
+              .map((role) =>
+                role.trim().toLowerCase()
+              )
+              .filter(Boolean)
+          : legacyRole
+            ? [
+                legacyRole
+                  .trim()
+                  .toLowerCase(),
+              ]
+            : [];
 
         console.log(
-          "Authenticated user role:",
-          role
+          "SwiftDrop user roles:",
+          roles
         );
 
         /*
-         * Not a driver.
+         * A driver is authorized when the
+         * account contains the driver role.
          */
-        if (role !== "driver") {
+        if (!roles.includes("driver")) {
           console.log(
             "User is not a driver. Redirecting to customer dashboard."
           );
@@ -148,22 +178,6 @@ function DriverDashboard() {
         }
 
         setDriverId(user.userId);
-
-        const displayName =
-          [
-            attributes.given_name,
-            attributes.family_name,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .trim() ||
-          attributes.email ||
-          "Driver";
-
-        setDriverDisplayName(
-          displayName
-        );
-
         setAuthorized(true);
         setLoading(false);
       } catch (authError) {
@@ -188,15 +202,13 @@ function DriverDashboard() {
   /*
    * Load deliveries.
    */
-  const loadDeliveries = useCallback(async (showLoading = true) => {
+  const loadDeliveries = useCallback(async () => {
     if (!driverId || !authorized) {
       return;
     }
 
     try {
-      if (showLoading) {
-        setLoading(true);
-      }
+      setLoading(true);
       setError("");
 
       console.log(
@@ -337,29 +349,6 @@ function DriverDashboard() {
     }
 
     loadDeliveries();
-  }, [
-    driverId,
-    authorized,
-    loadDeliveries,
-  ]);
-
-  /*
-   * Poll for new delivery requests while the driver dashboard
-   * remains open. This keeps the dashboard current without
-   * requiring the driver to refresh the page.
-   */
-  useEffect(() => {
-    if (!driverId || !authorized) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      loadDeliveries(false);
-    }, 5000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
   }, [
     driverId,
     authorized,
@@ -629,7 +618,7 @@ function DriverDashboard() {
               styles.driverId
             }
           >
-            {driverDisplayName || "Driver"}
+            {driverId}
           </span>
 
           <button
@@ -686,8 +675,8 @@ function DriverDashboard() {
 
           <button
             type="button"
-            onClick={() =>
-              loadDeliveries(true)
+            onClick={
+              loadDeliveries
             }
             style={
               styles.refreshButton
