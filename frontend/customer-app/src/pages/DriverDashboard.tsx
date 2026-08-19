@@ -92,6 +92,9 @@ function DriverDashboard() {
   const [updatingDelivery, setUpdatingDelivery] =
     useState<string | null>(null);
 
+  const [gpsTracking, setGpsTracking] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+
   /*
    * Authenticate user and verify Cognito role.
    *
@@ -487,6 +490,120 @@ function DriverDashboard() {
   };
 
   /*
+   * Start live GPS tracking for the active delivery.
+   */
+  const startGPSTracking = (
+    deliveryId: string
+  ) => {
+    if (!navigator.geolocation) {
+      setGpsError(
+        "Geolocation is not supported by this browser."
+      );
+      return;
+    }
+
+    setGpsTracking(true);
+    setGpsError("");
+
+    console.log(
+      "Starting live GPS tracking for delivery:",
+      deliveryId
+    );
+
+    const watchId =
+      navigator.geolocation.watchPosition(
+        async (position) => {
+          const latitude =
+            position.coords.latitude;
+
+          const longitude =
+            position.coords.longitude;
+
+          console.log(
+            "Driver GPS location:",
+            latitude,
+            longitude
+          );
+
+          try {
+            const client = generateClient();
+
+            const response: any =
+              await client.graphql({
+                query: UPDATE_DELIVERY,
+                variables: {
+                  deliveryId,
+                  input: {
+                    driverLatitude: latitude,
+                    driverLongitude: longitude,
+                  },
+                },
+                authMode: "userPool",
+              });
+
+            console.log(
+              "GPS location saved:",
+              response.data?.updateDelivery
+            );
+
+            setActiveDelivery((current) => {
+              if (
+                !current ||
+                current.deliveryId !== deliveryId
+              ) {
+                return current;
+              }
+
+              return {
+                ...current,
+                driverLatitude: latitude,
+                driverLongitude: longitude,
+              };
+            });
+          } catch (error) {
+            console.error(
+              "Failed to save GPS location:",
+              error
+            );
+          }
+        },
+        (error) => {
+          console.error("GPS error:", error);
+          setGpsTracking(false);
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setGpsError(
+                "Location permission was denied. Please allow location access."
+              );
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setGpsError(
+                "Your current location is unavailable."
+              );
+              break;
+            case error.TIMEOUT:
+              setGpsError(
+                "Location request timed out."
+              );
+              break;
+            default:
+              setGpsError(
+                "Unable to access your location."
+              );
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 10000,
+        }
+      );
+
+    (window as any).swiftDropGPSWatchId = watchId;
+  };
+
+  /*
    * Accept delivery.
    */
   const handleAcceptDelivery = async (
@@ -530,12 +647,17 @@ function DriverDashboard() {
         return;
       }
 
+      const deliveryId =
+        activeDelivery.deliveryId;
+
       await updateDelivery(
-        activeDelivery.deliveryId,
+        deliveryId,
         {
           status: "IN_TRANSIT",
         }
       );
+
+      startGPSTracking(deliveryId);
     };
 
   /*
@@ -545,6 +667,16 @@ function DriverDashboard() {
     if (!activeDelivery) {
       return;
     }
+
+    const watchId =
+      (window as any).swiftDropGPSWatchId;
+
+    if (watchId !== undefined) {
+      navigator.geolocation.clearWatch(watchId);
+      (window as any).swiftDropGPSWatchId = undefined;
+    }
+
+    setGpsTracking(false);
 
     await updateDelivery(
       activeDelivery.deliveryId,
@@ -707,6 +839,40 @@ function DriverDashboard() {
             Refresh
           </button>
         </section>
+
+        {/* =========================
+            GPS STATUS
+        ========================== */}
+
+        {gpsTracking && (
+          <div
+            style={{
+              background: "#dcfce7",
+              color: "#166534",
+              padding: "12px 16px",
+              borderRadius: "10px",
+              marginBottom: "14px",
+              fontWeight: 600,
+            }}
+          >
+            📍 Live GPS tracking is active
+          </div>
+        )}
+
+        {gpsError && (
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#991b1b",
+              padding: "12px 16px",
+              borderRadius: "10px",
+              marginBottom: "14px",
+              fontWeight: 600,
+            }}
+          >
+            📍 {gpsError}
+          </div>
+        )}
 
         {/* =========================
             ERROR

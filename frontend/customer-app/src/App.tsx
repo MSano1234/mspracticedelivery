@@ -13,22 +13,45 @@ function App() {
   return (
     <Routes>
       {/* Unified entry point */}
-      <Route path="/" element={<Welcome />} />
+      <Route
+        path="/"
+        element={<Welcome />}
+      />
 
       {/* Authentication */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+      <Route
+        path="/login"
+        element={<Login />}
+      />
+
+      <Route
+        path="/signup"
+        element={<Signup />}
+      />
+
       <Route
         path="/confirm-signup"
         element={<ConfirmSignup />}
       />
 
       {/* Orderer */}
-      <Route path="/home" element={<Home />} />
+      <Route
+        path="/home"
+        element={<Home />}
+      />
+
       <Route
         path="/create-delivery"
         element={<CreateDelivery />}
       />
+
+      {/* Track a specific delivery */}
+      <Route
+        path="/track-delivery/:deliveryId"
+        element={<TrackDelivery />}
+      />
+
+      {/* Keep compatibility with the old route */}
       <Route
         path="/track-delivery"
         element={<TrackDelivery />}
