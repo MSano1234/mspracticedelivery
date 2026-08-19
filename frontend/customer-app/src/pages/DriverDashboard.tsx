@@ -735,6 +735,12 @@ function DriverDashboard() {
         )}
 
         {/* =========================
+            ACTIVE + AVAILABLE GRID
+        ========================== */}
+
+        <div style={styles.dashboardGrid}>
+
+        {/* =========================
             ACTIVE DELIVERY
         ========================== */}
 
@@ -1092,32 +1098,6 @@ function DriverDashboard() {
 
 
         {/* =========================
-            ERROR
-        ========================== */}
-
-        {error && (
-          <div
-            style={styles.error}
-          >
-            <strong>
-              Error
-            </strong>
-
-            <p
-              style={{
-                margin: "8px 0 0",
-                whiteSpace:
-                  "pre-wrap",
-                wordBreak:
-                  "break-word",
-              }}
-            >
-              {error}
-            </p>
-          </div>
-        )}
-
-        {/* =========================
             AVAILABLE DELIVERIES
         ========================== */}
 
@@ -1399,6 +1379,8 @@ function DriverDashboard() {
             </div>
           )}
         </section>
+
+        </div>
 
         {/* =========================
             COMPLETED DELIVERIES
@@ -1718,7 +1700,7 @@ const styles: Record<
   },
 
   container: {
-    maxWidth: "1000px",
+    maxWidth: "1200px",
     margin: "0 auto",
     padding: "20px 24px 40px",
   },
@@ -1772,11 +1754,20 @@ const styles: Record<
     fontWeight: 600,
   },
 
+  dashboardGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "minmax(0, 1.35fr) minmax(0, 1fr)",
+    gap: "20px",
+    alignItems: "start",
+    marginBottom: "28px",
+  },
+
   activeSection: {
     background: "#ffffff",
     borderRadius: "16px",
     padding: "20px 24px",
-    marginBottom: "28px",
+    marginBottom: "0",
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
     border:
@@ -1907,7 +1898,7 @@ const styles: Record<
   },
 
   availableSection: {
-    marginBottom: "50px",
+    marginBottom: "0",
   },
 
   sectionHeader: {
