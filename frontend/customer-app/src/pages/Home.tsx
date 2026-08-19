@@ -68,45 +68,30 @@ function Home() {
         );
 
         /*
-         * IMPORTANT:
-         *
-         * Home is the Orderer dashboard.
-         *
-         * A SwiftDrop account can have BOTH:
+         * A SwiftDrop account can have multiple roles,
+         * for example:
          *
          * custom:roles = "orderer,driver"
          *
-         * We do NOT redirect based on whether the
-         * account has the driver role here.
+         * Login.tsx already decides whether the user
+         * selected Driver or Orderer and sends them to
+         * the appropriate dashboard.
          *
-         * Login.tsx already handles the user's
-         * selected role and sends:
-         *
-         * Driver  -> /driver-dashboard
-         * Orderer -> /home
-         *
-         * Therefore Home only verifies that the user
-         * is authenticated and then loads the Orderer
-         * dashboard.
+         * Home must NOT redirect based on the presence
+         * of the driver role.
          */
+        console.log(
+          "SwiftDrop user roles:",
+          attributes["custom:roles"]
+        );
 
         if (!mounted) {
           return;
         }
 
-        /*
-         * Display a friendly account value instead
-         * of the Cognito UUID.
-         */
         setUserEmail(
-          attributes.email ||
-          [
-            attributes.given_name,
-            attributes.family_name,
-          ]
-            .filter(Boolean)
-            .join(" ") ||
-          "Account"
+          attributes["email"] ||
+          user.username
         );
 
         setCheckingAuth(false);
@@ -252,10 +237,31 @@ function Home() {
       <main className="home-content">
 
         {/* =========================
+            ACTIVE + REQUEST
+        ========================== */}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "minmax(0, 1.35fr) minmax(320px, 0.75fr)",
+            gap: "20px",
+            alignItems: "stretch",
+            marginBottom: "28px",
+          }}
+        >
+
+        {/* =========================
             ACTIVE DELIVERY
         ========================== */}
 
-        <section className="active-delivery">
+        <section
+          className="active-delivery"
+          style={{
+            margin: 0,
+            minWidth: 0,
+          }}
+        >
 
           {activeDelivery ? (
             <>
@@ -576,35 +582,89 @@ function Home() {
 
         </section>
 
-
         {/* =========================
-            WELCOME SECTION
+            REQUEST NEW DELIVERY
         ========================== */}
 
-        <section className="welcome-section">
-
-          <p className="eyebrow">
-            CUSTOMER DASHBOARD
+        <section
+          style={{
+            background: "#ffffff",
+            borderRadius: "16px",
+            padding: "28px",
+            border: "1px solid #e5e7eb",
+            boxShadow:
+              "0 4px 14px rgba(0,0,0,0.06)",
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            minHeight: "100%",
+          }}
+        >
+          <p
+            className="eyebrow"
+            style={{
+              marginBottom: "10px",
+            }}
+          >
+            NEW DELIVERY
           </p>
 
-          <h1>
-            Deliver anything, anywhere.
-          </h1>
+          <h2
+            style={{
+              margin: "0 0 12px",
+              fontSize: "28px",
+              color: "#111827",
+            }}
+          >
+            Request a Delivery
+          </h2>
 
-          <p>
-            Request a delivery and track your
+          <p
+            style={{
+              margin: "0 0 24px",
+              color: "#64748b",
+              fontSize: "16px",
+              lineHeight: 1.5,
+            }}
+          >
+            Send a package anywhere and track your
             driver in real time.
           </p>
 
           <Link
             to="/create-delivery"
             className="primary-button"
+            style={{
+              display: "inline-flex",
+              justifyContent: "center",
+              alignItems: "center",
+              width: "100%",
+              boxSizing: "border-box",
+              textDecoration: "none",
+            }}
           >
             Request a Delivery
           </Link>
 
+          <div
+            style={{
+              marginTop: "22px",
+              paddingTop: "18px",
+              borderTop:
+                "1px solid #e5e7eb",
+              color: "#64748b",
+              fontSize: "13px",
+              lineHeight: 1.5,
+            }}
+          >
+            Need another delivery? You can
+            create a new request whenever you are
+            ready.
+          </div>
         </section>
 
+        </div>
 
         {/* =========================
             MY DELIVERIES
