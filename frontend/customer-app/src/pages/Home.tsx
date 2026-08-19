@@ -234,7 +234,13 @@ function Home() {
 
       </header>
 
-      <main className="home-content">
+      <main
+        className="home-content"
+        style={{
+          paddingTop: "24px",
+          paddingBottom: "32px",
+        }}
+      >
 
         {/* =========================
             ACTIVE + REQUEST
@@ -260,6 +266,7 @@ function Home() {
           style={{
             margin: 0,
             minWidth: 0,
+            padding: "24px",
           }}
         >
 
@@ -267,7 +274,10 @@ function Home() {
             <>
               {/* Active Delivery Header */}
 
-              <div className="section-header">
+              <div
+                className="section-header"
+                style={{ marginBottom: "14px" }}
+              >
 
                 <div>
 
@@ -293,7 +303,13 @@ function Home() {
 
               {/* Delivery Route */}
 
-              <div className="route-card">
+              <div
+                className="route-card"
+                style={{
+                  padding: "16px 20px",
+                  marginBottom: "14px",
+                }}
+              >
 
                 <div className="route-point">
 
@@ -345,7 +361,14 @@ function Home() {
 
               {/* Map Placeholder */}
 
-              <div className="map-placeholder">
+              <div
+                className="map-placeholder"
+                style={{
+                  height: "230px",
+                  minHeight: "230px",
+                  marginBottom: "14px",
+                }}
+              >
 
                 <div className="map-road road-one"></div>
 
@@ -383,7 +406,13 @@ function Home() {
 
               {/* Delivery Information */}
 
-              <div className="delivery-info">
+              <div
+                className="delivery-info"
+                style={{
+                  padding: "12px 0",
+                  marginBottom: "14px",
+                }}
+              >
 
                 <div className="info-item">
 
@@ -438,6 +467,10 @@ function Home() {
               <Link
                 to={`/track-delivery/${activeDelivery.deliveryId}`}
                 className="track-button"
+                style={{
+                  minHeight: "48px",
+                  boxSizing: "border-box",
+                }}
               >
                 Track Delivery
               </Link>
@@ -590,15 +623,17 @@ function Home() {
           style={{
             background: "#ffffff",
             borderRadius: "16px",
-            padding: "28px",
+            padding: "24px",
             border: "1px solid #e5e7eb",
             boxShadow:
               "0 4px 14px rgba(0,0,0,0.06)",
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
-            minHeight: "100%",
+            justifyContent: "flex-start",
+            alignSelf: "start",
+            height: "fit-content",
+            boxSizing: "border-box",
           }}
         >
           <p
@@ -622,7 +657,7 @@ function Home() {
 
           <p
             style={{
-              margin: "0 0 24px",
+              margin: "0 0 20px",
               color: "#64748b",
               fontSize: "16px",
               lineHeight: 1.5,
@@ -649,7 +684,7 @@ function Home() {
 
           <div
             style={{
-              marginTop: "22px",
+              marginTop: "18px",
               paddingTop: "18px",
               borderTop:
                 "1px solid #e5e7eb",
