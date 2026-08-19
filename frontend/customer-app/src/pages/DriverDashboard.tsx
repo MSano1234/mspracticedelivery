@@ -1702,7 +1702,7 @@ const styles: Record<
   container: {
     maxWidth: "1200px",
     margin: "0 auto",
-    padding: "20px 24px 40px",
+    padding: "10px 24px 30px",
   },
 
   headerSection: {
@@ -1710,7 +1710,7 @@ const styles: Record<
     justifyContent:
       "space-between",
     alignItems: "flex-end",
-    marginBottom: "16px",
+    marginBottom: "10px",
     gap: "12px",
   },
 
@@ -1723,15 +1723,15 @@ const styles: Record<
   },
 
   title: {
-    margin: "4px 0 4px",
-    fontSize: "30px",
+    margin: "2px 0 2px",
+    fontSize: "28px",
     color: "#111827",
   },
 
   subtitle: {
     margin: 0,
     color: "#64748b",
-    fontSize: "16px",
+    fontSize: "14px",
   },
 
   refreshButton: {
@@ -1739,7 +1739,7 @@ const styles: Record<
       "1px solid #d1d5db",
     background: "#ffffff",
     color: "#374151",
-    padding: "10px 18px",
+    padding: "8px 16px",
     borderRadius: "8px",
     fontWeight: 600,
     cursor: "pointer",
@@ -1758,15 +1758,15 @@ const styles: Record<
     display: "grid",
     gridTemplateColumns:
       "minmax(0, 1.35fr) minmax(0, 1fr)",
-    gap: "20px",
+    gap: "18px",
     alignItems: "start",
-    marginBottom: "28px",
+    marginBottom: "24px",
   },
 
   activeSection: {
     background: "#ffffff",
     borderRadius: "16px",
-    padding: "20px 24px",
+    padding: "16px 22px",
     marginBottom: "0",
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
@@ -1779,12 +1779,12 @@ const styles: Record<
     justifyContent:
       "space-between",
     alignItems: "flex-start",
-    marginBottom: "25px",
+    marginBottom: "16px",
   },
 
   activeTitle: {
-    margin: "6px 0 0",
-    fontSize: "24px",
+    margin: "4px 0 0",
+    fontSize: "23px",
     color: "#111827",
   },
 
@@ -1800,8 +1800,8 @@ const styles: Record<
   activeDeliveryId: {
     display: "flex",
     flexDirection: "column",
-    gap: "3px",
-    marginBottom: "12px",
+    gap: "2px",
+    marginBottom: "9px",
   },
 
   noActiveCard: {
@@ -1833,13 +1833,13 @@ const styles: Record<
     display: "grid",
     gridTemplateColumns:
       "repeat(4, 1fr)",
-    gap: "10px",
-    padding: "14px 0",
+    gap: "8px",
+    padding: "10px 0",
     borderTop:
       "1px solid #e5e7eb",
     borderBottom:
       "1px solid #e5e7eb",
-    marginBottom: "25px",
+    marginBottom: "14px",
   },
 
   stage: {
@@ -1851,8 +1851,8 @@ const styles: Record<
   },
 
   stageCircle: {
-    width: "28px",
-    height: "28px",
+    width: "26px",
+    height: "26px",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
@@ -1863,7 +1863,7 @@ const styles: Record<
   },
 
   stageLabel: {
-    fontSize: "11px",
+    fontSize: "10px",
     fontWeight: 600,
     color: "#374151",
   },
@@ -1877,7 +1877,7 @@ const styles: Record<
     width: "100%",
     border: "none",
     borderRadius: "10px",
-    padding: "11px 15px",
+    padding: "10px 15px",
     background: "#2563eb",
     color: "#ffffff",
     fontSize: "16px",
@@ -1889,7 +1889,7 @@ const styles: Record<
     width: "100%",
     border: "none",
     borderRadius: "10px",
-    padding: "15px",
+    padding: "11px 15px",
     background: "#16a34a",
     color: "#ffffff",
     fontSize: "16px",
@@ -1906,7 +1906,7 @@ const styles: Record<
     justifyContent:
       "space-between",
     alignItems: "center",
-    marginBottom: "20px",
+    marginBottom: "14px",
   },
 
   sectionTitle: {
